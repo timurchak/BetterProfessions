@@ -632,10 +632,16 @@ local function SnapshotOrder(order)
 end
 
 local function GetCurrentRowOrder(row)
-    if row.rowData then
-        return row.rowData.option
+    if row.GetElementData then
+        local elementData = row:GetElementData()
+        if elementData ~= nil then
+            return elementData.option, true
+        end
     end
-    return row.option
+    if row.rowData then
+        return row.rowData.option, true
+    end
+    return row.option, false
 end
 
 local function IsSameOrder(left, right)
@@ -706,9 +712,9 @@ function OrderList:UpdateRow(row, elementData)
         if widgets.generation ~= generation or widgets.orderID ~= order.orderID or not row:IsVisible() then
             return
         end
-        local currentOrder = GetCurrentRowOrder(row)
-        if (row.rowData and not IsSameOrder(currentOrder, order))
-            or (currentOrder and not IsSameOrder(currentOrder, order)) then
+        local currentOrder, authoritative = GetCurrentRowOrder(row)
+        if (authoritative and not IsSameOrder(currentOrder, order))
+            or (not authoritative and currentOrder and not IsSameOrder(currentOrder, order)) then
             HideSummary(widgets.rewards)
             HideSummary(widgets.reagents)
             return
@@ -750,22 +756,45 @@ function OrderList:TryRegisterRows()
     ScrollUtil.AddInitializedFrameCallback(scrollBox, function(_, row, elementData)
         self:UpdateRow(row, elementData)
     end, nil, true)
+
+    local function ScheduleRefresh()
+        self:ScheduleRefreshRows()
+    end
+    scrollBox:RegisterCallback(ScrollBoxListMixin.Event.OnDataRangeChanged, ScheduleRefresh, self)
+    scrollBox:RegisterCallback(ScrollBoxListMixin.Event.OnUpdate, ScheduleRefresh, self)
+
+    if browseFrame then
+        browseFrame:HookScript("OnShow", ScheduleRefresh)
+    end
+    local orderView = ProfessionsFrame.OrdersPage and ProfessionsFrame.OrdersPage.OrderView
+    if orderView then
+        orderView:HookScript("OnHide", ScheduleRefresh)
+    end
 end
 
 function OrderList:RefreshRows()
-    for row, widgets in pairs(widgetsByRow) do
-        if row:IsVisible() then
-            local currentOrder = GetCurrentRowOrder(row)
-            if currentOrder then
-                self:UpdateRow(row, { option = currentOrder })
-            elseif widgets.order and not row.rowData then
-                self:UpdateRow(row, { option = widgets.order })
-            else
-                HideSummary(widgets.rewards)
-                HideSummary(widgets.reagents)
-            end
-        end
+    if not self.scrollBox then
+        return
     end
+    self.scrollBox:ForEachFrame(function(row, elementData)
+        self:UpdateRow(row, elementData)
+    end)
+end
+
+function OrderList:ScheduleRefreshRows()
+    self.refreshGeneration = (self.refreshGeneration or 0) + 1
+    local generation = self.refreshGeneration
+    C_Timer.After(0, function()
+        if self.refreshGeneration ~= generation then
+            return
+        end
+        self:RefreshRows()
+        C_Timer.After(0, function()
+            if self.refreshGeneration == generation then
+                self:RefreshRows()
+            end
+        end)
+    end)
 end
 
 function OrderList:Initialize()
