@@ -396,7 +396,7 @@ local function GetMissingReagents(order)
     local missing = {}
     local operationReagents = {}
 
-    for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
+    for schematicIndex, slot in ipairs(schematic.reagentSlotSchematics or {}) do
         local providedCount = 0
         local providedItemID
         for _, reagent in ipairs(slot.reagents or {}) do
@@ -428,6 +428,7 @@ local function GetMissingReagents(order)
                 count = requiredCount - providedCount,
                 bindType = bindType,
                 alternatives = alternatives,
+                sortIndex = slot.dataSlotIndex or schematicIndex,
             }
         end
 
@@ -439,6 +440,13 @@ local function GetMissingReagents(order)
             }
         end
     end
+
+    table.sort(missing, function(left, right)
+        if left.sortIndex ~= right.sortIndex then
+            return left.sortIndex < right.sortIndex
+        end
+        return left.itemID < right.itemID
+    end)
 
     return missing, operationReagents
 end
@@ -511,17 +519,20 @@ local function CalculateProfit(missingReagents, rewards)
 
             if cheapestPrice then
                 local itemName, itemLink, itemTexture, bindType = GetItemDisplay(cheapestItemID)
-                reagent.itemID = cheapestItemID
-                reagent.name = itemName
-                reagent.link = itemLink
-                reagent.texture = itemTexture
-                reagent.bindType = bindType
-                reagent.unitPrice = cheapestPrice
-                reagent.priceSource = cheapestSource
-                reagent.totalPrice = cheapestPrice * (reagent.count or 0)
-                costs = costs + reagent.totalPrice
+                local costEntry = {
+                    itemID = cheapestItemID,
+                    name = itemName,
+                    link = itemLink,
+                    texture = itemTexture,
+                    bindType = bindType,
+                    count = reagent.count,
+                    unitPrice = cheapestPrice,
+                    priceSource = cheapestSource,
+                    totalPrice = cheapestPrice * (reagent.count or 0),
+                }
+                costs = costs + costEntry.totalPrice
                 sources[cheapestSource] = true
-                costEntries[#costEntries + 1] = reagent
+                costEntries[#costEntries + 1] = costEntry
             elseif reagent.bindType and reagent.bindType ~= 0 then
                 reagent.totalPrice = 0
                 costEntries[#costEntries + 1] = reagent
@@ -585,6 +596,54 @@ local function GetConcentration(order, operationReagents)
     return nil
 end
 
+local function SnapshotOrder(order)
+    local snapshot = {
+        orderID = order.orderID,
+        spellID = order.spellID,
+        isRecraft = order.isRecraft,
+        minQuality = order.minQuality,
+        tipAmount = order.tipAmount,
+        consortiumCut = order.consortiumCut,
+        reagents = {},
+        npcOrderRewards = {},
+    }
+
+    for _, entry in ipairs(order.reagents or {}) do
+        local reagentInfo = entry.reagentInfo
+        local reagent = reagentInfo and reagentInfo.reagent
+        if reagent and reagent.itemID then
+            snapshot.reagents[#snapshot.reagents + 1] = {
+                reagentInfo = {
+                    reagent = { itemID = reagent.itemID },
+                    quantity = reagentInfo.quantity,
+                },
+            }
+        end
+    end
+
+    for _, reward in ipairs(order.npcOrderRewards or {}) do
+        snapshot.npcOrderRewards[#snapshot.npcOrderRewards + 1] = {
+            itemLink = reward.itemLink,
+            currencyType = reward.currencyType,
+            count = reward.count,
+        }
+    end
+    return snapshot
+end
+
+local function GetCurrentRowOrder(row)
+    if row.rowData then
+        return row.rowData.option
+    end
+    return row.option
+end
+
+local function IsSameOrder(left, right)
+    return left and right
+        and tostring(left.orderID) == tostring(right.orderID)
+        and left.spellID == right.spellID
+end
+
 local function HideNativeWidgets(row)
     local cells = row.cells
     if not cells then
@@ -624,8 +683,8 @@ function OrderList:UpdateRow(row, elementData)
         return
     end
 
-    local order = elementData and elementData.option
-    if not order or not order.orderID or not order.spellID then
+    local liveOrder = elementData and elementData.option
+    if not liveOrder or not liveOrder.orderID or not liveOrder.spellID then
         local widgets = widgetsByRow[row]
         if widgets then
             HideSummary(widgets.rewards)
@@ -635,6 +694,8 @@ function OrderList:UpdateRow(row, elementData)
         return
     end
 
+    local order = SnapshotOrder(liveOrder)
+
     local widgets = GetWidgets(row)
     widgets.generation = widgets.generation + 1
     local generation = widgets.generation
@@ -643,6 +704,13 @@ function OrderList:UpdateRow(row, elementData)
 
     C_Timer.After(0, function()
         if widgets.generation ~= generation or widgets.orderID ~= order.orderID or not row:IsVisible() then
+            return
+        end
+        local currentOrder = GetCurrentRowOrder(row)
+        if (row.rowData and not IsSameOrder(currentOrder, order))
+            or (currentOrder and not IsSameOrder(currentOrder, order)) then
+            HideSummary(widgets.rewards)
+            HideSummary(widgets.reagents)
             return
         end
 
@@ -686,8 +754,16 @@ end
 
 function OrderList:RefreshRows()
     for row, widgets in pairs(widgetsByRow) do
-        if widgets.order and row:IsVisible() then
-            self:UpdateRow(row, { option = widgets.order })
+        if row:IsVisible() then
+            local currentOrder = GetCurrentRowOrder(row)
+            if currentOrder then
+                self:UpdateRow(row, { option = currentOrder })
+            elseif widgets.order and not row.rowData then
+                self:UpdateRow(row, { option = widgets.order })
+            else
+                HideSummary(widgets.rewards)
+                HideSummary(widgets.reagents)
+            end
         end
     end
 end
