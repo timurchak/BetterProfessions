@@ -672,34 +672,48 @@ end
 
 local function GetWidgets(row)
     local widgets = widgetsByRow[row]
-    if widgets then
+    local rewardCell = row.cells[3]
+    local reagentCell = row.cells[4]
+    if widgets and widgets.rewardCell == rewardCell and widgets.reagentCell == reagentCell then
         return widgets
     end
 
-    widgets = {
-        rewards = CreateSummary(row.cells[3], true),
-        reagents = CreateSummary(row.cells[4], false),
-    }
-    widgetsByRow[row] = widgets
-    row:HookScript("OnHide", function()
+    if widgets then
         HideSummary(widgets.rewards)
         HideSummary(widgets.reagents)
-        widgets.orderID = nil
-        widgets.spellID = nil
-        widgets.elementData = nil
-    end)
+    end
+
+    widgets = {
+        rewards = CreateSummary(rewardCell, true),
+        reagents = CreateSummary(reagentCell, false),
+        rewardCell = rewardCell,
+        reagentCell = reagentCell,
+    }
+    widgetsByRow[row] = widgets
+    if not row.betterProfessionsHideHooked then
+        row.betterProfessionsHideHooked = true
+        row:HookScript("OnHide", function(hiddenRow)
+            local currentWidgets = widgetsByRow[hiddenRow]
+            if currentWidgets then
+                HideSummary(currentWidgets.rewards)
+                HideSummary(currentWidgets.reagents)
+                currentWidgets.orderID = nil
+                currentWidgets.spellID = nil
+            end
+        end)
+    end
     return widgets
 end
 
-function OrderList:UpdateRow(row, elementData)
+function OrderList:UpdateRow(row)
     if not addon.db.orderPreviews or not row or not row.cells then
         return
     end
 
-    if row.GetElementData then
-        elementData = row:GetElementData() or elementData
-    end
-    local liveOrder = elementData and elementData.option
+    -- Blizzard's row mixin renders and opens the order from row.option. Using
+    -- that same field keeps our preview bound to the exact order visible in
+    -- the row, including after a server-side sort replaces the data provider.
+    local liveOrder = row.option
     if not liveOrder or not liveOrder.orderID or not liveOrder.spellID then
         local widgets = widgetsByRow[row]
         if widgets then
@@ -707,7 +721,6 @@ function OrderList:UpdateRow(row, elementData)
             HideSummary(widgets.reagents)
             widgets.orderID = nil
             widgets.spellID = nil
-            widgets.elementData = nil
         end
         return
     end
@@ -716,14 +729,12 @@ function OrderList:UpdateRow(row, elementData)
     local widgets = GetWidgets(row)
     widgets.orderID = liveOrder.orderID
     widgets.spellID = liveOrder.spellID
-    widgets.elementData = elementData
 
     HideNativeWidgets(row)
     local model = BuildOrderModel(order)
 
-    local currentElementData = row.GetElementData and row:GetElementData() or elementData
-    local currentOrder = currentElementData and currentElementData.option
-    if not currentOrder
+    local currentOrder = row.option
+    if currentOrder ~= liveOrder
         or currentOrder.orderID ~= widgets.orderID
         or currentOrder.spellID ~= widgets.spellID then
         HideSummary(widgets.rewards)
@@ -750,31 +761,17 @@ function OrderList:TryRegisterRows()
 
     self.rowsRegistered = true
     self.scrollBox = scrollBox
-    ScrollUtil.AddInitializedFrameCallback(scrollBox, function(_, row, elementData)
-        self:UpdateRow(row, elementData)
+    ScrollUtil.AddInitializedFrameCallback(scrollBox, function(_, row)
+        self:UpdateRow(row)
     end, nil, true)
-
-    local function ScheduleRefresh()
-        self:ScheduleRefreshRows()
-    end
-    scrollBox:RegisterCallback(ScrollBoxListMixin.Event.OnDataRangeChanged, ScheduleRefresh, self)
-    scrollBox:RegisterCallback(ScrollBoxListMixin.Event.OnUpdate, ScheduleRefresh, self)
-
-    if browseFrame then
-        browseFrame:HookScript("OnShow", ScheduleRefresh)
-    end
-    local orderView = ProfessionsFrame.OrdersPage and ProfessionsFrame.OrdersPage.OrderView
-    if orderView then
-        orderView:HookScript("OnHide", ScheduleRefresh)
-    end
 end
 
 function OrderList:RefreshRows()
     if not self.scrollBox then
         return
     end
-    self.scrollBox:ForEachFrame(function(row, elementData)
-        self:UpdateRow(row, elementData)
+    self.scrollBox:ForEachFrame(function(row)
+        self:UpdateRow(row)
     end)
 end
 
@@ -797,7 +794,6 @@ end
 function OrderList:OnEvent(event)
     if event == "CRAFTINGORDERS_CAN_REQUEST" or event == "CRAFTINGORDERS_UPDATE_ORDER_COUNT" then
         self:TryRegisterRows()
-        self:ScheduleRefreshRows()
     elseif event == "CRAFTINGORDERS_UPDATE_REWARDS" then
         self:ScheduleRefreshRows()
     elseif event == "GET_ITEM_INFO_RECEIVED" or event == "BAG_UPDATE_DELAYED" then
