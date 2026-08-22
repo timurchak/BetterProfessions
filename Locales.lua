@@ -2,7 +2,7 @@ local _, addon = ...
 
 local english = {
     QUALITY_TITLE = "Recipe quality",
-    QUALITY_SUBTITLE = "Directly increases skill; all related nodes are shown",
+    QUALITY_SUBTITLE = "Directly increases skill",
     RANK = "Rank",
     SKILL = "Skill",
     SKILL_FROM_SPECS = "Skill from specializations",
@@ -34,7 +34,7 @@ local english = {
 
 local russian = {
     QUALITY_TITLE = "Качество рецепта",
-    QUALITY_SUBTITLE = "Напрямую повышает навык; показаны все связанные узлы",
+    QUALITY_SUBTITLE = "Напрямую повышает навык",
     RANK = "Ранг",
     SKILL = "Навык",
     SKILL_FROM_SPECS = "Навык от специализаций",
