@@ -164,9 +164,15 @@ local function CreateIcon(parent)
     button.icon:SetAllPoints()
     button.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 
+    button.missingGlow = button:CreateTexture(nil, "BACKGROUND")
+    button.missingGlow:SetPoint("TOPLEFT", -3, 3)
+    button.missingGlow:SetPoint("BOTTOMRIGHT", 3, -3)
+    button.missingGlow:SetColorTexture(1, 0.02, 0.02, 0.9)
+    button.missingGlow:Hide()
+
     button.missingOverlay = button:CreateTexture(nil, "OVERLAY")
     button.missingOverlay:SetAllPoints()
-    button.missingOverlay:SetColorTexture(1, 0, 0, 0.24)
+    button.missingOverlay:SetColorTexture(1, 0, 0, 0.38)
     button.missingOverlay:Hide()
 
     button.count = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmallOutline")
@@ -179,11 +185,14 @@ local function CreateIcon(parent)
 end
 
 local function SetIconNeedsPurchase(icon, needsPurchase)
+    icon.missingGlow:SetShown(needsPurchase)
     icon.missingOverlay:SetShown(needsPurchase)
     if needsPurchase then
         icon:SetBackdropBorderColor(1, 0.08, 0.08, 1)
+        icon.icon:SetVertexColor(1, 0.55, 0.55)
     else
         icon:SetBackdropBorderColor(unpack(DEFAULT_ICON_BORDER))
+        icon.icon:SetVertexColor(1, 1, 1)
     end
 end
 
