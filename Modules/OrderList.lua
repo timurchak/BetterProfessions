@@ -7,6 +7,24 @@ local ICON_SIZE = 20
 local MAX_ICONS = 4
 local MAX_REWARD_ICONS = 2
 local widgetsByRow = setmetatable({}, { __mode = "k" })
+local DEFAULT_ICON_BORDER = { 0.45, 0.48, 0.55, 0.95 }
+
+local function GetOwnedReagentCount(entry)
+    local owned = 0
+    local seen = {}
+    local itemIDs = entry.alternatives or { entry.itemID }
+    for _, itemID in ipairs(itemIDs) do
+        if itemID and not seen[itemID] then
+            seen[itemID] = true
+            owned = owned + (C_Item.GetItemCount(itemID, true, false, true, true) or 0)
+        end
+    end
+    return owned
+end
+
+local function EntryNeedsPurchase(entry)
+    return entry.kind == "item" and GetOwnedReagentCount(entry) < (entry.count or 0)
+end
 
 local function TextureMarkup(texture, size)
     if not texture then
@@ -74,7 +92,7 @@ local function AddEntryToTooltip(entry)
     elseif entry.kind == "concentration" then
         GameTooltip:AddDoubleLine(addon.L.CONCENTRATION, tostring(entry.amount), 1, 1, 1, 0.35, 0.75, 1)
     elseif entry.kind == "item" then
-        local owned = C_Item.GetItemCount(entry.itemID, true, false, true, true)
+        local owned = GetOwnedReagentCount(entry)
         GameTooltip:AddDoubleLine(
             TextureMarkup(entry.texture) .. " " .. (entry.link or entry.name),
             string.format("%s: %d   %s: %d", addon.L.REQUIRED, entry.count or 0, addon.L.OWNED, owned or 0),
@@ -104,7 +122,7 @@ local function IconOnEnter(self)
             GameTooltip:SetText(entry.name)
         end
         if entry.kind == "item" then
-            local owned = C_Item.GetItemCount(entry.itemID, true, false, true, true)
+            local owned = GetOwnedReagentCount(entry)
             GameTooltip:AddLine(" ")
             GameTooltip:AddDoubleLine(addon.L.REQUIRED, tostring(entry.count or 0), 1, 1, 1, 1, 1, 1)
             GameTooltip:AddDoubleLine(addon.L.OWNED, tostring(owned or 0), 1, 1, 1, owned >= (entry.count or 0) and 0.25 or 1, owned >= (entry.count or 0) and 1 or 0.25, 0.25)
@@ -146,6 +164,11 @@ local function CreateIcon(parent)
     button.icon:SetAllPoints()
     button.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 
+    button.missingOverlay = button:CreateTexture(nil, "OVERLAY")
+    button.missingOverlay:SetAllPoints()
+    button.missingOverlay:SetColorTexture(1, 0, 0, 0.24)
+    button.missingOverlay:Hide()
+
     button.count = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmallOutline")
     button.count:SetPoint("BOTTOMRIGHT", 1, 0)
 
@@ -153,6 +176,15 @@ local function CreateIcon(parent)
     button:SetScript("OnEnter", IconOnEnter)
     button:SetScript("OnLeave", IconOnLeave)
     return button
+end
+
+local function SetIconNeedsPurchase(icon, needsPurchase)
+    icon.missingOverlay:SetShown(needsPurchase)
+    if needsPurchase then
+        icon:SetBackdropBorderColor(1, 0.08, 0.08, 1)
+    else
+        icon:SetBackdropBorderColor(unpack(DEFAULT_ICON_BORDER))
+    end
 end
 
 local RewardSummaryOnEnter
@@ -198,6 +230,7 @@ local function HideSummary(summary)
     end
     for _, icon in ipairs(summary.icons) do
         icon.entry = nil
+        SetIconNeedsPurchase(icon, false)
         icon:Hide()
     end
 end
@@ -273,6 +306,7 @@ local function DisplayRewards(summary, entries, profitInfo)
     summary.text:SetText("")
     for _, icon in ipairs(summary.icons) do
         icon.entry = nil
+        SetIconNeedsPurchase(icon, false)
         icon:Hide()
     end
 
@@ -304,6 +338,7 @@ local function DisplayRewards(summary, entries, profitInfo)
         icon.entry = entry
         icon.icon:SetTexture(entry.texture)
         icon.icon:SetDesaturated(false)
+        SetIconNeedsPurchase(icon, false)
         icon.count:SetText((entry.count or 0) > 1 and tostring(entry.count) or "")
         icon:Show()
     end
@@ -317,6 +352,7 @@ local function DisplayRewards(summary, entries, profitInfo)
         icon.entry = { kind = "extra", title = addon.L.REWARDS, entries = extras }
         icon.icon:SetTexture(134400)
         icon.icon:SetDesaturated(true)
+        SetIconNeedsPurchase(icon, false)
         icon.count:SetText("+" .. tostring(#extras))
         icon:Show()
         lastIcon = icon
@@ -337,6 +373,7 @@ local function DisplayEntries(summary, entries, extraTitle)
     summary.text:SetText("")
     for _, icon in ipairs(summary.icons) do
         icon.entry = nil
+        SetIconNeedsPurchase(icon, false)
         icon:Hide()
     end
 
@@ -351,6 +388,7 @@ local function DisplayEntries(summary, entries, extraTitle)
         icon.entry = entry
         icon.icon:SetTexture(entry.texture)
         icon.icon:SetDesaturated(false)
+        SetIconNeedsPurchase(icon, EntryNeedsPurchase(entry))
         icon.count:SetText((entry.count or 0) > 1 and tostring(entry.count) or "")
         icon:Show()
     end
@@ -368,6 +406,14 @@ local function DisplayEntries(summary, entries, extraTitle)
         }
         icon.icon:SetTexture(134400)
         icon.icon:SetDesaturated(true)
+        local extrasNeedPurchase = false
+        for _, entry in ipairs(extras) do
+            if EntryNeedsPurchase(entry) then
+                extrasNeedPurchase = true
+                break
+            end
+        end
+        SetIconNeedsPurchase(icon, extrasNeedPurchase)
         icon.count:SetText("+" .. tostring(#extras))
         icon:Show()
     end
