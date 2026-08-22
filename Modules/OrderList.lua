@@ -7,8 +7,6 @@ local ICON_SIZE = 20
 local MAX_ICONS = 4
 local MAX_REWARD_ICONS = 2
 local widgetsByRow = setmetatable({}, { __mode = "k" })
-local orderSnapshots = {}
-local orderModels = {}
 
 local function TextureMarkup(texture, size)
     if not texture then
@@ -633,10 +631,6 @@ local function SnapshotOrder(order)
     return snapshot
 end
 
-local function GetOrderKey(orderID)
-    return orderID and tostring(orderID) or nil
-end
-
 local function BuildOrderModel(order)
     local missingReagents, operationReagents = GetMissingReagents(order)
     local concentration = GetConcentration(order, operationReagents)
@@ -687,6 +681,13 @@ local function GetWidgets(row)
         reagents = CreateSummary(row.cells[4], false),
     }
     widgetsByRow[row] = widgets
+    row:HookScript("OnHide", function()
+        HideSummary(widgets.rewards)
+        HideSummary(widgets.reagents)
+        widgets.orderID = nil
+        widgets.spellID = nil
+        widgets.elementData = nil
+    end)
     return widgets
 end
 
@@ -695,57 +696,44 @@ function OrderList:UpdateRow(row, elementData)
         return
     end
 
+    if row.GetElementData then
+        elementData = row:GetElementData() or elementData
+    end
     local liveOrder = elementData and elementData.option
     if not liveOrder or not liveOrder.orderID or not liveOrder.spellID then
         local widgets = widgetsByRow[row]
         if widgets then
             HideSummary(widgets.rewards)
             HideSummary(widgets.reagents)
-            widgets.order = nil
+            widgets.orderID = nil
+            widgets.spellID = nil
+            widgets.elementData = nil
         end
         return
     end
 
-    local orderKey = GetOrderKey(liveOrder.orderID)
-    local order = orderSnapshots[orderKey]
-    if not order or order.spellID ~= liveOrder.spellID then
-        order = SnapshotOrder(liveOrder)
-        orderSnapshots[orderKey] = order
-        orderModels[orderKey] = nil
-    end
-
+    local order = SnapshotOrder(liveOrder)
     local widgets = GetWidgets(row)
-    widgets.orderID = orderKey
+    widgets.orderID = liveOrder.orderID
+    widgets.spellID = liveOrder.spellID
+    widgets.elementData = elementData
 
     HideNativeWidgets(row)
-    local model = orderModels[orderKey]
-    if not model then
-        model = BuildOrderModel(order)
-        orderModels[orderKey] = model
+    local model = BuildOrderModel(order)
+
+    local currentElementData = row.GetElementData and row:GetElementData() or elementData
+    local currentOrder = currentElementData and currentElementData.option
+    if not currentOrder
+        or currentOrder.orderID ~= widgets.orderID
+        or currentOrder.spellID ~= widgets.spellID then
+        HideSummary(widgets.rewards)
+        HideSummary(widgets.reagents)
+        self:ScheduleRefreshRows()
+        return
     end
+
     DisplayRewards(widgets.rewards, model.rewards, model.profitInfo)
     DisplayEntries(widgets.reagents, model.missingReagents, addon.L.YOU_PROVIDE)
-end
-
-function OrderList:RefreshOrderSnapshots()
-    if not C_CraftingOrders.GetCrafterOrders then
-        return
-    end
-
-    local ok, orders = pcall(C_CraftingOrders.GetCrafterOrders)
-    if not ok or type(orders) ~= "table" then
-        return
-    end
-
-    local snapshots = {}
-    for _, order in ipairs(orders) do
-        local orderKey = GetOrderKey(order.orderID)
-        if orderKey and order.spellID then
-            snapshots[orderKey] = SnapshotOrder(order)
-        end
-    end
-    orderSnapshots = snapshots
-    orderModels = {}
 end
 
 function OrderList:TryRegisterRows()
@@ -762,13 +750,12 @@ function OrderList:TryRegisterRows()
 
     self.rowsRegistered = true
     self.scrollBox = scrollBox
-    self:RefreshOrderSnapshots()
     ScrollUtil.AddInitializedFrameCallback(scrollBox, function(_, row, elementData)
         self:UpdateRow(row, elementData)
     end, nil, true)
 
     local function ScheduleRefresh()
-        self:ScheduleRefreshRows(true)
+        self:ScheduleRefreshRows()
     end
     scrollBox:RegisterCallback(ScrollBoxListMixin.Event.OnDataRangeChanged, ScheduleRefresh, self)
     scrollBox:RegisterCallback(ScrollBoxListMixin.Event.OnUpdate, ScheduleRefresh, self)
@@ -782,20 +769,16 @@ function OrderList:TryRegisterRows()
     end
 end
 
-function OrderList:RefreshRows(refreshOrders)
+function OrderList:RefreshRows()
     if not self.scrollBox then
         return
-    end
-    if refreshOrders then
-        self:RefreshOrderSnapshots()
     end
     self.scrollBox:ForEachFrame(function(row, elementData)
         self:UpdateRow(row, elementData)
     end)
 end
 
-function OrderList:ScheduleRefreshRows(refreshOrders)
-    self.refreshOrders = self.refreshOrders or refreshOrders
+function OrderList:ScheduleRefreshRows()
     if self.refreshPending then
         return
     end
@@ -803,9 +786,7 @@ function OrderList:ScheduleRefreshRows(refreshOrders)
     self.refreshPending = true
     C_Timer.After(0, function()
         self.refreshPending = false
-        local shouldRefreshOrders = self.refreshOrders
-        self.refreshOrders = false
-        self:RefreshRows(shouldRefreshOrders)
+        self:RefreshRows()
     end)
 end
 
@@ -816,11 +797,10 @@ end
 function OrderList:OnEvent(event)
     if event == "CRAFTINGORDERS_CAN_REQUEST" or event == "CRAFTINGORDERS_UPDATE_ORDER_COUNT" then
         self:TryRegisterRows()
-        self:ScheduleRefreshRows(true)
+        self:ScheduleRefreshRows()
     elseif event == "CRAFTINGORDERS_UPDATE_REWARDS" then
-        self:ScheduleRefreshRows(true)
+        self:ScheduleRefreshRows()
     elseif event == "GET_ITEM_INFO_RECEIVED" or event == "BAG_UPDATE_DELAYED" then
-        orderModels = {}
-        self:ScheduleRefreshRows(false)
+        self:ScheduleRefreshRows()
     end
 end
