@@ -7,6 +7,8 @@ local ICON_SIZE = 20
 local MAX_ICONS = 4
 local MAX_REWARD_ICONS = 2
 local widgetsByRow = setmetatable({}, { __mode = "k" })
+local orderSnapshots = {}
+local orderModels = {}
 
 local function TextureMarkup(texture, size)
     if not texture then
@@ -631,23 +633,28 @@ local function SnapshotOrder(order)
     return snapshot
 end
 
-local function GetCurrentRowOrder(row)
-    if row.GetElementData then
-        local elementData = row:GetElementData()
-        if elementData ~= nil then
-            return elementData.option, true
-        end
-    end
-    if row.rowData then
-        return row.rowData.option, true
-    end
-    return row.option, false
+local function GetOrderKey(orderID)
+    return orderID and tostring(orderID) or nil
 end
 
-local function IsSameOrder(left, right)
-    return left and right
-        and tostring(left.orderID) == tostring(right.orderID)
-        and left.spellID == right.spellID
+local function BuildOrderModel(order)
+    local missingReagents, operationReagents = GetMissingReagents(order)
+    local concentration = GetConcentration(order, operationReagents)
+    if concentration then
+        missingReagents[#missingReagents + 1] = {
+            kind = "concentration",
+            label = addon.L.CONCENTRATION,
+            amount = concentration,
+            texture = 5747318,
+        }
+    end
+
+    local rewards = GetRewards(order)
+    return {
+        missingReagents = missingReagents,
+        rewards = rewards,
+        profitInfo = CalculateProfit(missingReagents, rewards),
+    }
 end
 
 local function HideNativeWidgets(row)
@@ -678,7 +685,6 @@ local function GetWidgets(row)
     widgets = {
         rewards = CreateSummary(row.cells[3], true),
         reagents = CreateSummary(row.cells[4], false),
-        generation = 0,
     }
     widgetsByRow[row] = widgets
     return widgets
@@ -700,43 +706,46 @@ function OrderList:UpdateRow(row, elementData)
         return
     end
 
-    local order = SnapshotOrder(liveOrder)
+    local orderKey = GetOrderKey(liveOrder.orderID)
+    local order = orderSnapshots[orderKey]
+    if not order or order.spellID ~= liveOrder.spellID then
+        order = SnapshotOrder(liveOrder)
+        orderSnapshots[orderKey] = order
+        orderModels[orderKey] = nil
+    end
 
     local widgets = GetWidgets(row)
-    widgets.generation = widgets.generation + 1
-    local generation = widgets.generation
-    widgets.order = order
-    widgets.orderID = order.orderID
+    widgets.orderID = orderKey
 
-    C_Timer.After(0, function()
-        if widgets.generation ~= generation or widgets.orderID ~= order.orderID or not row:IsVisible() then
-            return
-        end
-        local currentOrder, authoritative = GetCurrentRowOrder(row)
-        if (authoritative and not IsSameOrder(currentOrder, order))
-            or (not authoritative and currentOrder and not IsSameOrder(currentOrder, order)) then
-            HideSummary(widgets.rewards)
-            HideSummary(widgets.reagents)
-            return
-        end
+    HideNativeWidgets(row)
+    local model = orderModels[orderKey]
+    if not model then
+        model = BuildOrderModel(order)
+        orderModels[orderKey] = model
+    end
+    DisplayRewards(widgets.rewards, model.rewards, model.profitInfo)
+    DisplayEntries(widgets.reagents, model.missingReagents, addon.L.YOU_PROVIDE)
+end
 
-        HideNativeWidgets(row)
-        local missingReagents, operationReagents = GetMissingReagents(order)
-        local concentration = GetConcentration(order, operationReagents)
-        if concentration then
-            missingReagents[#missingReagents + 1] = {
-                kind = "concentration",
-                label = addon.L.CONCENTRATION,
-                amount = concentration,
-                texture = 5747318,
-            }
-        end
+function OrderList:RefreshOrderSnapshots()
+    if not C_CraftingOrders.GetCrafterOrders then
+        return
+    end
 
-        local rewards = GetRewards(order)
-        local profitInfo = CalculateProfit(missingReagents, rewards)
-        DisplayRewards(widgets.rewards, rewards, profitInfo)
-        DisplayEntries(widgets.reagents, missingReagents, addon.L.YOU_PROVIDE)
-    end)
+    local ok, orders = pcall(C_CraftingOrders.GetCrafterOrders)
+    if not ok or type(orders) ~= "table" then
+        return
+    end
+
+    local snapshots = {}
+    for _, order in ipairs(orders) do
+        local orderKey = GetOrderKey(order.orderID)
+        if orderKey and order.spellID then
+            snapshots[orderKey] = SnapshotOrder(order)
+        end
+    end
+    orderSnapshots = snapshots
+    orderModels = {}
 end
 
 function OrderList:TryRegisterRows()
@@ -753,12 +762,13 @@ function OrderList:TryRegisterRows()
 
     self.rowsRegistered = true
     self.scrollBox = scrollBox
+    self:RefreshOrderSnapshots()
     ScrollUtil.AddInitializedFrameCallback(scrollBox, function(_, row, elementData)
         self:UpdateRow(row, elementData)
     end, nil, true)
 
     local function ScheduleRefresh()
-        self:ScheduleRefreshRows()
+        self:ScheduleRefreshRows(true)
     end
     scrollBox:RegisterCallback(ScrollBoxListMixin.Event.OnDataRangeChanged, ScheduleRefresh, self)
     scrollBox:RegisterCallback(ScrollBoxListMixin.Event.OnUpdate, ScheduleRefresh, self)
@@ -772,28 +782,30 @@ function OrderList:TryRegisterRows()
     end
 end
 
-function OrderList:RefreshRows()
+function OrderList:RefreshRows(refreshOrders)
     if not self.scrollBox then
         return
+    end
+    if refreshOrders then
+        self:RefreshOrderSnapshots()
     end
     self.scrollBox:ForEachFrame(function(row, elementData)
         self:UpdateRow(row, elementData)
     end)
 end
 
-function OrderList:ScheduleRefreshRows()
-    self.refreshGeneration = (self.refreshGeneration or 0) + 1
-    local generation = self.refreshGeneration
+function OrderList:ScheduleRefreshRows(refreshOrders)
+    self.refreshOrders = self.refreshOrders or refreshOrders
+    if self.refreshPending then
+        return
+    end
+
+    self.refreshPending = true
     C_Timer.After(0, function()
-        if self.refreshGeneration ~= generation then
-            return
-        end
-        self:RefreshRows()
-        C_Timer.After(0, function()
-            if self.refreshGeneration == generation then
-                self:RefreshRows()
-            end
-        end)
+        self.refreshPending = false
+        local shouldRefreshOrders = self.refreshOrders
+        self.refreshOrders = false
+        self:RefreshRows(shouldRefreshOrders)
     end)
 end
 
@@ -804,7 +816,11 @@ end
 function OrderList:OnEvent(event)
     if event == "CRAFTINGORDERS_CAN_REQUEST" or event == "CRAFTINGORDERS_UPDATE_ORDER_COUNT" then
         self:TryRegisterRows()
-    elseif event == "GET_ITEM_INFO_RECEIVED" or event == "BAG_UPDATE_DELAYED" or event == "CRAFTINGORDERS_UPDATE_REWARDS" then
-        self:RefreshRows()
+        self:ScheduleRefreshRows(true)
+    elseif event == "CRAFTINGORDERS_UPDATE_REWARDS" then
+        self:ScheduleRefreshRows(true)
+    elseif event == "GET_ITEM_INFO_RECEIVED" or event == "BAG_UPDATE_DELAYED" then
+        orderModels = {}
+        self:ScheduleRefreshRows(false)
     end
 end
