@@ -5,6 +5,7 @@ addon.OrderList = OrderList
 
 local ICON_SIZE = 20
 local MAX_ICONS = 4
+local MAX_REWARD_ICONS = 2
 local widgetsByRow = setmetatable({}, { __mode = "k" })
 
 local function TextureMarkup(texture, size)
@@ -93,17 +94,17 @@ local function IconOnLeave()
 end
 
 local function CreateIcon(parent)
-    local button = CreateFrame("Button", nil, parent)
+    local button = CreateFrame("Button", nil, parent, "BackdropTemplate")
     button:SetSize(ICON_SIZE, ICON_SIZE)
+    button:SetBackdrop({
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        edgeSize = 1,
+    })
+    button:SetBackdropBorderColor(0.45, 0.48, 0.55, 0.95)
 
     button.icon = button:CreateTexture(nil, "ARTWORK")
     button.icon:SetAllPoints()
     button.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-
-    button.border = button:CreateTexture(nil, "OVERLAY")
-    button.border:SetPoint("TOPLEFT", -1, 1)
-    button.border:SetPoint("BOTTOMRIGHT", 1, -1)
-    button.border:SetAtlas("bags-item-slot64", true)
 
     button.count = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmallOutline")
     button.count:SetPoint("BOTTOMRIGHT", 1, 0)
@@ -126,19 +127,15 @@ local function CreateSummary(parent, showMoney)
 
     if showMoney then
         summary.money = summary:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-        summary.money:SetPoint("TOPLEFT", 1, -1)
-        summary.money:SetPoint("TOPRIGHT", -1, -1)
-        summary.money:SetJustifyH("CENTER")
+        summary.money:SetPoint("LEFT", 1, 0)
+        summary.money:SetPoint("RIGHT", -1, 0)
+        summary.money:SetJustifyH("RIGHT")
     end
 
     for index = 1, MAX_ICONS do
         local icon = CreateIcon(summary)
         if index == 1 then
-            if showMoney then
-                icon:SetPoint("BOTTOMLEFT", 2, 1)
-            else
-                icon:SetPoint("LEFT", 2, 0)
-            end
+            icon:SetPoint("LEFT", 2, 0)
         else
             icon:SetPoint("LEFT", summary.icons[index - 1], "RIGHT", 2, 0)
         end
@@ -175,12 +172,15 @@ local function DisplayRewards(summary, entries)
     end
 
     if #rewardEntries == 0 then
+        summary.money:ClearAllPoints()
+        summary.money:SetPoint("LEFT", 1, 0)
+        summary.money:SetPoint("RIGHT", -1, 0)
         return
     end
 
-    local visibleCount = math.min(#rewardEntries, MAX_ICONS)
-    if #rewardEntries > MAX_ICONS then
-        visibleCount = MAX_ICONS - 1
+    local visibleCount = math.min(#rewardEntries, MAX_REWARD_ICONS)
+    if #rewardEntries > MAX_REWARD_ICONS then
+        visibleCount = MAX_REWARD_ICONS - 1
     end
     for index = 1, visibleCount do
         local entry = rewardEntries[index]
@@ -191,18 +191,24 @@ local function DisplayRewards(summary, entries)
         icon.count:SetText((entry.count or 0) > 1 and tostring(entry.count) or "")
         icon:Show()
     end
-    if #rewardEntries > MAX_ICONS then
+    local lastIcon = summary.icons[visibleCount]
+    if #rewardEntries > MAX_REWARD_ICONS then
         local extras = {}
-        for index = MAX_ICONS, #rewardEntries do
+        for index = MAX_REWARD_ICONS, #rewardEntries do
             extras[#extras + 1] = rewardEntries[index]
         end
-        local icon = summary.icons[MAX_ICONS]
+        local icon = summary.icons[MAX_REWARD_ICONS]
         icon.entry = { kind = "extra", title = addon.L.REWARDS, entries = extras }
         icon.icon:SetTexture(134400)
         icon.icon:SetDesaturated(true)
         icon.count:SetText("+" .. tostring(#extras))
         icon:Show()
+        lastIcon = icon
     end
+
+    summary.money:ClearAllPoints()
+    summary.money:SetPoint("LEFT", lastIcon, "RIGHT", 3, 0)
+    summary.money:SetPoint("RIGHT", -1, 0)
 end
 
 local function DisplayEntries(summary, entries, emptyText, extraTitle)

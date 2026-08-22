@@ -111,14 +111,15 @@ foreach ($sourceFile in $sourceFiles) {
   }
 
   foreach ($parsedNode in $parsedNodes.Values) {
-    if ($parsedNode.Key -ne $parsedNode.NodeID -and $parsedNode.Skill -gt 0) {
-      if (-not $nodes.ContainsKey($parsedNode.NodeID)) {
-        $nodes[$parsedNode.NodeID] = [ordered]@{
-          MaxRank = 0
-          SkillPerRank = 0
-          Perks = @{}
-        }
+    if (-not $nodes.ContainsKey($parsedNode.NodeID)) {
+      $nodes[$parsedNode.NodeID] = [ordered]@{
+        MaxRank = 0
+        SkillPerRank = 0
+        Perks = @{}
       }
+    }
+
+    if ($parsedNode.Key -ne $parsedNode.NodeID -and $parsedNode.Skill -gt 0) {
       $nodes[$parsedNode.NodeID].Perks[$parsedNode.Key] = $parsedNode.Skill
     }
   }
@@ -129,7 +130,7 @@ foreach ($sourceFile in $sourceFiles) {
       if ($line -match '^\t\t\t(\d+),$') {
         $mappedID = [int64]$Matches[1]
         $parsedNode = $parsedNodes[$mappedID]
-        if ($parsedNode -and $parsedNode.Skill -gt 0) {
+        if ($parsedNode) {
           [void]$relatedNodeIDs.Add($parsedNode.NodeID)
         }
       }
@@ -185,6 +186,7 @@ foreach ($nodeID in ($usedNodeIDs | Sort-Object)) {
 
 $outputDirectory = [System.IO.Directory]::GetParent($OutputPath).FullName
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
-[System.IO.File]::WriteAllText($OutputPath, $builder.ToString(), [System.Text.UTF8Encoding]::new($false))
+$generatedText = $builder.ToString().Replace("`r`n", "`n")
+[System.IO.File]::WriteAllText($OutputPath, $generatedText, [System.Text.UTF8Encoding]::new($false))
 
-Write-Host "Generated $($recipes.Count) recipe mappings and $($usedNodeIDs.Count) skill nodes: $OutputPath"
+Write-Host "Generated $($recipes.Count) recipe mappings and $($usedNodeIDs.Count) related nodes: $OutputPath"

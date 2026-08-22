@@ -72,7 +72,9 @@ local function RowOnEnter(self)
     end
     GameTooltip:AddLine(" ")
     GameTooltip:AddDoubleLine(addon.L.RANK, string.format("%d/%d", data.currentRank, data.maxRank), 1, 1, 1, 1, 1, 1)
-    GameTooltip:AddDoubleLine(addon.L.SKILL_FROM_SPECS, string.format("+%d / +%d", data.currentSkill, data.maxSkill), 1, 1, 1, 0.35, 0.75, 1)
+    if data.maxSkill > 0 then
+        GameTooltip:AddDoubleLine(addon.L.SKILL_FROM_SPECS, string.format("+%d / +%d", data.currentSkill, data.maxSkill), 1, 1, 1, 0.35, 0.75, 1)
+    end
 
     for _, perk in ipairs(data.perks) do
         local color = perk.active and "|cff40ff40" or "|cff888888"
@@ -274,9 +276,9 @@ function RecipeSpecializations:Update(recipeID)
         local row = self:GetRow(index)
         row.data = data
         row.icon:SetTexture(data.icon)
-        row.name:SetText(data.name)
+        row.name:SetText((data.maxSkill > 0 and "|cffffd100★|r " or "") .. data.name)
         row.rank:SetText(string.format("%d/%d", data.currentRank, data.maxRank))
-        row.skill:SetText(string.format("+%d", data.currentSkill))
+        row.skill:SetText(data.maxSkill > 0 and string.format("+%d/%d", data.currentSkill, data.maxSkill) or "")
         row.bar:SetMinMaxValues(0, math.max(1, data.maxRank))
         row.bar:SetValue(data.currentRank)
         if data.currentRank >= data.maxRank and data.maxRank > 0 then
