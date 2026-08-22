@@ -1,41 +1,41 @@
 # BetterProfessions
 
-Небольшое улучшение стандартного окна профессий в WoW Retail. Аддон не заменяет интерфейс Blizzard и не добавляет ещё одну огромную панель — просто показывает полезную информацию там, где её обычно не хватает.
+A small upgrade for the default profession window in WoW Retail. It does not replace Blizzard's interface or add another huge dashboard. It simply puts useful information where you already expect to find it.
 
-## Заказы
+## Crafting orders
 
-В списке заказов сразу видно:
+The order list shows you:
 
-- сколько вы получите с учётом комиссии Консорциума;
-- примерный профит;
-- награды за заказы покровителей;
-- какие реагенты придётся добавить самому;
-- сколько концентрации понадобится для минимального качества.
+- how much commission you will receive after the Consortium cut;
+- estimated profit;
+- rewards from patron orders;
+- which reagents you need to provide;
+- how much concentration is needed for the minimum quality.
 
-Если нужного реагента не хватает, его иконка подсвечивается красным. Если заказчик предоставил всё необходимое, колонка реагентов остаётся пустой — лишний текст не мешает смотреть список.
+If you do not have enough of a required reagent, its icon is highlighted in red. When the customer provides everything, the reagent column stays empty instead of showing unnecessary text.
 
-Профит считается по ценам из **Auctionator**, **TradeSkillMaster** или **Oribos Exchange**. Один из этих аддонов нужен только для цен; всё остальное работает и без них.
+Profit is calculated using prices from **Auctionator**, **TradeSkillMaster**, or **Oribos Exchange**. One of these addons is only needed for pricing; everything else works without them.
 
-## Рецепты и специализации
+## Recipes and specializations
 
-При открытии рецепта рядом появляется компактный список узлов специализации, которые могут повысить навык именно для этого рецепта.
+When you open a recipe, a compact panel shows the specialization nodes that can increase skill for that specific recipe.
 
-В нём видно:
+It includes:
 
-- связанные узлы специализации;
-- текущий и максимальный ранг;
-- текущий и максимальный бонус навыка;
-- подробное описание при наведении.
+- related specialization nodes;
+- current and maximum ranks;
+- current and maximum skill bonuses;
+- detailed descriptions on mouseover.
 
-Так проще понять, куда вложить очки, если рецепту не хватает навыка для следующего качества.
+This makes it easier to see where to spend knowledge points when a recipe needs more skill for the next quality.
 
-## Команды
+## Commands
 
-- `/bp` — показать команды;
-- `/bp orders` — включить или выключить улучшения списка заказов;
-- `/bp specs` — включить или выключить панель специализаций;
-- `/bp reset` — сбросить настройки.
+- `/bp` — show available commands;
+- `/bp orders` — toggle crafting-order improvements;
+- `/bp specs` — toggle the specialization panel;
+- `/bp reset` — reset settings.
 
-После изменения модулей потребуется `/reload`.
+Use `/reload` after toggling a module.
 
-Никаких обязательных библиотек и настроек перед первым запуском нет: установили, включили и открыли профессию.
+There are no required libraries or setup steps. Install it, enable it, and open your profession window.

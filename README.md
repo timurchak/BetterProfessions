@@ -1,57 +1,57 @@
 # BetterProfessions
 
-BetterProfessions — небольшой аддон для World of Warcraft Retail, расширяющий стандартный интерфейс профессий. Он добавляет подробности в список заказов и показывает специализации, влияющие на качество выбранного рецепта.
+BetterProfessions is a small World of Warcraft Retail addon that extends Blizzard's profession interface. It adds useful details to the crafting-order list and shows the specializations that affect the quality of the selected recipe.
 
-Пользовательское описание для CurseForge находится в [CURSE.md](CURSE.md).
+The player-facing CurseForge description is available in [CURSE.md](CURSE.md).
 
-## Возможности
+## Features
 
-### Список заказов
+### Crafting-order list
 
-- Чистая комиссия после удержания Консорциума.
-- Ожидаемый профит, округлённый до золота; точный расчёт доступен в подсказке.
-- Цены из Auctionator, TradeSkillMaster или Oribos Exchange.
-- Предметы и валюты из наград заказов покровителей.
-- Обязательные реагенты, не предоставленные заказчиком.
-- Красная подсветка реагентов, которых недостаточно у персонажа.
-- Учёт допустимых качеств реагента, сумок, банка реагентов и военного банка.
-- Требуемая концентрация для достижения минимального качества.
-- Пустая колонка реагентов, если заказчик предоставил всё необходимое.
+- Net commission after the Consortium cut.
+- Estimated profit rounded to whole gold, with an exact breakdown in the tooltip.
+- Price data from Auctionator, TradeSkillMaster, or Oribos Exchange.
+- Item and currency rewards from patron orders.
+- Required reagents not supplied by the customer.
+- Red highlighting when the character does not own enough of a reagent.
+- Inventory checks across valid reagent qualities, bags, reagent bank, and Warband bank.
+- Concentration required to reach the order's minimum quality.
+- An empty reagent column when the customer supplied everything.
 
-Превью привязано к штатному `row.option` Blizzard ScrollBox. Это сохраняет соответствие заказу после сортировки, обновления списка и повторного использования строк интерфейса.
+Order previews use the same `row.option` state as Blizzard's ScrollBox rows. This keeps each preview attached to the correct order after sorting, list updates, and row reuse.
 
-### Специализации рецепта
+### Recipe specializations
 
-- Компактная отдельная панель при выборе рецепта.
-- Все известные связанные узлы, способные повлиять на навык рецепта.
-- Текущий и максимальный ранг каждого узла.
-- Текущий и максимальный бонус навыка.
-- Описания узлов и пороговых бонусов в подсказках.
+- A compact side panel displayed when a recipe is selected.
+- All known related nodes that can affect skill for the recipe.
+- Current and maximum rank for each node.
+- Current and maximum skill bonuses.
+- Node descriptions and threshold bonuses in tooltips.
 
-Таблица соответствий рецептов и узлов хранится в `Data/RecipeSpecializations.lua`. Названия, иконки, описания и текущий прогресс запрашиваются через WoW API.
+The recipe-to-node mapping is stored in `Data/RecipeSpecializations.lua`. Names, icons, descriptions, and current progression are retrieved through the WoW API.
 
-## Зависимости
+## Dependencies
 
-Обязательных зависимостей нет.
+BetterProfessions has no required dependencies.
 
-Для расчёта аукционного профита поддерживается любой из следующих аддонов:
+Auction profit can use any one of the following addons as a price source:
 
 - Auctionator;
 - TradeSkillMaster;
 - Oribos Exchange.
 
-Без источника цен остальные функции BetterProfessions продолжают работать.
+All non-pricing features continue to work without an auction addon.
 
-## Команды
+## Commands
 
-- `/bp` — справка;
-- `/bp orders` — переключить превью заказов;
-- `/bp specs` — переключить панель специализаций;
-- `/bp reset` — сбросить настройки.
+- `/bp` — show help;
+- `/bp orders` — toggle crafting-order previews;
+- `/bp specs` — toggle the recipe specialization panel;
+- `/bp reset` — reset settings.
 
-После переключения модулей требуется `/reload`.
+Use `/reload` after toggling a module.
 
-## Структура проекта
+## Project structure
 
 ```text
 BetterProfessions.toc
@@ -70,19 +70,19 @@ scripts/
   Generate-SpecializationData.ps1
 ```
 
-## Локальная разработка
+## Local development
 
-Требуется PowerShell 7 или Windows PowerShell 5.1.
+PowerShell 7 or Windows PowerShell 5.1 is required.
 
-Создайте игнорируемый Git файл `.deploy.local.ps1` на основе `.deploy.local.ps1.example`:
+Create the Git-ignored `.deploy.local.ps1` file from `.deploy.local.ps1.example`:
 
 ```powershell
 $BetterProfessionsWowRoot = "F:\G\World of Warcraft\_retail_"
 ```
 
-Вместо файла можно передать `-WowRoot` или задать переменную окружения `WOW_RETAIL_PATH`.
+Alternatively, pass `-WowRoot` directly or set the `WOW_RETAIL_PATH` environment variable.
 
-Основные команды:
+Main commands:
 
 ```powershell
 ./scripts/Validate.ps1
@@ -91,29 +91,29 @@ $BetterProfessionsWowRoot = "F:\G\World of Warcraft\_retail_"
 ./scripts/Package.ps1
 ```
 
-- `Validate.ps1` проверяет TOC, Lua-файлы и метаданные версии.
-- `Deploy.ps1` валидирует проект и копирует runtime-файлы в `Interface/AddOns/BetterProfessions`.
-- `Watch.ps1` повторяет локальный деплой после изменения runtime-файлов.
-- `Package.ps1` создаёт готовый архив в `dist`.
+- `Validate.ps1` validates the TOC, Lua files, and version metadata.
+- `Deploy.ps1` validates the project and copies runtime files to `Interface/AddOns/BetterProfessions`.
+- `Watch.ps1` repeats the local deployment when runtime files change.
+- `Package.ps1` creates a release-ready ZIP in `dist`.
 
-## Обновление данных специализаций
+## Updating specialization data
 
-После крупных обновлений профессий таблицу можно пересобрать из установленного CraftSim:
+After a major profession update, the mapping can be regenerated from an installed copy of CraftSim:
 
 ```powershell
 ./scripts/Generate-SpecializationData.ps1 `
   -CraftSimRoot "F:\G\World of Warcraft\_retail_\Interface\AddOns\CraftSim"
 ```
 
-CraftSim используется только как источник данных во время разработки. Пользователю устанавливать его не требуется.
+CraftSim is only used as a development-time data source. Players do not need to install it.
 
-## CI и релизы
+## CI and releases
 
-- `.github/workflows/ci.yml` запускает проверку и создаёт тестовый ZIP.
-- `.github/workflows/release.yml` запускает BigWigs Packager для тегов `v*`.
-- Версия релизного тега должна совпадать с `## Version` в `BetterProfessions.toc`.
-- Для публикации на CurseForge необходимо указать project ID в `.pkgmeta` и добавить секрет `CF_API_KEY`.
+- `.github/workflows/ci.yml` validates the addon and creates a test ZIP.
+- `.github/workflows/release.yml` runs the BigWigs Packager for `v*` tags.
+- The release tag version must match `## Version` in `BetterProfessions.toc`.
+- CurseForge publishing requires a project ID in `.pkgmeta` and the `CF_API_KEY` secret.
 
-## Источники идей
+## Inspiration
 
-Идея расширенного списка заказов вдохновлена ProfessionShoppingList, а отображение связанных специализаций — CraftSim. BetterProfessions не требует эти аддоны во время работы и использует собственную реализацию поверх стандартного интерфейса Blizzard.
+The enhanced crafting-order list was inspired by ProfessionShoppingList, while the related-specialization view was inspired by CraftSim. BetterProfessions does not require either addon at runtime and provides its own implementation on top of Blizzard's standard interface.
