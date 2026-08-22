@@ -1,0 +1,2 @@
+# Copy this file to .deploy.local.ps1 and set your Retail installation path.
+$BetterProfessionsWowRoot = "C:\Program Files (x86)\World of Warcraft\_retail_"

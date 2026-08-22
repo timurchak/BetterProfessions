@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-package:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Validate addon
+        shell: pwsh
+        run: ./scripts/Validate.ps1
+
+      - name: Build test ZIP
+        shell: pwsh
+        run: ./scripts/Package.ps1 -OutputDirectory dist
+
+      - name: Upload test package
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/*.zip
+          archive: false

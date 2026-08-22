@@ -1,0 +1,57 @@
+local _, addon = ...
+
+local english = {
+    QUALITY_TITLE = "Recipe quality",
+    QUALITY_SUBTITLE = "Specializations that increase skill for this recipe",
+    RANK = "Rank",
+    SKILL = "Skill",
+    SKILL_FROM_SPECS = "Skill from specializations",
+    NO_RELATED_NODES = "No quality-improving specialization nodes are known for this recipe.",
+    NODE_UNAVAILABLE = "Specialization data is unavailable for this profession.",
+    COMMISSION = "Commission after consortium cut",
+    REWARDS = "Rewards",
+    YOU_PROVIDE = "You provide",
+    ALL_PROVIDED = "All required reagents are provided",
+    REQUIRED = "Required",
+    OWNED = "Owned",
+    CONCENTRATION = "Concentration needed for minimum quality",
+    LOWEST_QUALITY_NOTE = "The icon shows the lowest-quality valid reagent; the final choice can require a higher quality.",
+    MORE = "%d more",
+    ENABLED = "enabled",
+    DISABLED = "disabled",
+    ORDERS_OPTION = "order previews",
+    SPECS_OPTION = "recipe specialization panel",
+    RELOAD_TO_APPLY = "Reload the UI to apply this change.",
+    COMMAND_HELP = "Commands: /bp orders, /bp specs, /bp reset",
+    RESET_DONE = "Settings reset.",
+}
+
+local russian = {
+    QUALITY_TITLE = "Качество рецепта",
+    QUALITY_SUBTITLE = "Специализации, повышающие навык для этого рецепта",
+    RANK = "Ранг",
+    SKILL = "Навык",
+    SKILL_FROM_SPECS = "Навык от специализаций",
+    NO_RELATED_NODES = "Для этого рецепта не найдены специализации, повышающие качество.",
+    NODE_UNAVAILABLE = "Данные специализации для этой профессии недоступны.",
+    COMMISSION = "Комиссия после удержания Консорциума",
+    REWARDS = "Награды",
+    YOU_PROVIDE = "Предоставляете вы",
+    ALL_PROVIDED = "Все обязательные реагенты предоставлены заказчиком",
+    REQUIRED = "Нужно",
+    OWNED = "Есть",
+    CONCENTRATION = "Концентрация для минимального качества",
+    LOWEST_QUALITY_NOTE = "Показан реагент минимального качества; для результата может потребоваться более высокое качество.",
+    MORE = "Ещё: %d",
+    ENABLED = "включено",
+    DISABLED = "выключено",
+    ORDERS_OPTION = "подробности заказов",
+    SPECS_OPTION = "панель специализаций рецепта",
+    RELOAD_TO_APPLY = "Перезагрузите интерфейс, чтобы применить изменение.",
+    COMMAND_HELP = "Команды: /bp orders, /bp specs, /bp reset",
+    RESET_DONE = "Настройки сброшены.",
+}
+
+addon.L = setmetatable(GetLocale() == "ruRU" and russian or english, {
+    __index = english,
+})

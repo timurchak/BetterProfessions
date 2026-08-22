@@ -1,0 +1,15 @@
+package-as: BetterProfessions
+
+enable-nolib-creation: no
+
+ignore:
+  - .github
+  - .gitignore
+  - .gitattributes
+  - .editorconfig
+  - .deploy.local.ps1
+  - .deploy.local.ps1.example
+  - .pkgmeta
+  - README.md
+  - scripts
+  - dist

@@ -1,0 +1,16 @@
+## Interface: 120100
+## Title: BetterProfessions
+## Notes: Clear crafting-order previews and recipe-specific quality specialization guidance.
+## Notes-ruRU: Подробности заказов в списке и специализации, повышающие качество выбранного рецепта.
+## Author: Timur
+## Version: 0.1.0-dev
+## SavedVariables: BetterProfessionsDB
+## OptionalDeps: Blizzard_Professions
+## Category-enUS: Professions
+## Category-ruRU: Профессии
+
+Locales.lua
+Core.lua
+Data\RecipeSpecializations.lua
+Modules\OrderList.lua
+Modules\RecipeSpecializations.lua
