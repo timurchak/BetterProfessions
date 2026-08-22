@@ -77,4 +77,4 @@ scripts/
 - `.github/workflows/ci.yml` validates the addon and creates a test ZIP.
 - `.github/workflows/release.yml` runs the BigWigs Packager for `v*` tags.
 - The release tag version must match `## Version` in `BetterProfessions.toc`.
-- CurseForge publishing requires a project ID in `.pkgmeta` and the `CF_API_KEY` secret.
+- CurseForge project ID `1663593` is configured through `X-Curse-Project-ID` in `BetterProfessions.toc`. Publishing requires the `CF_API_KEY` GitHub Actions secret.

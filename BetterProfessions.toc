@@ -4,6 +4,7 @@
 ## Notes-ruRU: Подробности заказов в списке и специализации, повышающие качество выбранного рецепта.
 ## Author: Timur
 ## Version: 0.1.0-dev
+## X-Curse-Project-ID: 1663593
 ## IconTexture: Interface\AddOns\BetterProfessions\Media\Icon.tga
 ## SavedVariables: BetterProfessionsDB
 ## OptionalDeps: Blizzard_Professions, Auctionator, TradeSkillMaster, OribosExchange
