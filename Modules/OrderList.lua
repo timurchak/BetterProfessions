@@ -209,6 +209,13 @@ local function SignedMoney(amount)
     return C_CurrencyInfo.GetCoinTextureString(amount, 11)
 end
 
+local function RoundToGold(amount)
+    if amount >= 0 then
+        return math.floor((amount + 5000) / 10000) * 10000
+    end
+    return math.ceil((amount - 5000) / 10000) * 10000
+end
+
 RewardSummaryOnEnter = function(self)
     local info = self.profitInfo
     if not info then
@@ -271,7 +278,7 @@ local function DisplayRewards(summary, entries, profitInfo)
 
     if profitInfo.complete then
         local color = profitInfo.profit >= 0 and "|cff40c040" or "|cffff4040"
-        summary.money:SetText(color .. SignedMoney(profitInfo.profit) .. "|r")
+        summary.money:SetText(color .. SignedMoney(RoundToGold(profitInfo.profit)) .. "|r")
     else
         summary.money:SetText("|cffffb000?|r")
     end
