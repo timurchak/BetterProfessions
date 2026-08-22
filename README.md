@@ -70,50 +70,9 @@ scripts/
   Generate-SpecializationData.ps1
 ```
 
-## Local development
-
-PowerShell 7 or Windows PowerShell 5.1 is required.
-
-Create the Git-ignored `.deploy.local.ps1` file from `.deploy.local.ps1.example`:
-
-```powershell
-$BetterProfessionsWowRoot = "F:\G\World of Warcraft\_retail_"
-```
-
-Alternatively, pass `-WowRoot` directly or set the `WOW_RETAIL_PATH` environment variable.
-
-Main commands:
-
-```powershell
-./scripts/Validate.ps1
-./scripts/Deploy.ps1
-./scripts/Watch.ps1
-./scripts/Package.ps1
-```
-
-- `Validate.ps1` validates the TOC, Lua files, and version metadata.
-- `Deploy.ps1` validates the project and copies runtime files to `Interface/AddOns/BetterProfessions`.
-- `Watch.ps1` repeats the local deployment when runtime files change.
-- `Package.ps1` creates a release-ready ZIP in `dist`.
-
-## Updating specialization data
-
-After a major profession update, the mapping can be regenerated from an installed copy of CraftSim:
-
-```powershell
-./scripts/Generate-SpecializationData.ps1 `
-  -CraftSimRoot "F:\G\World of Warcraft\_retail_\Interface\AddOns\CraftSim"
-```
-
-CraftSim is only used as a development-time data source. Players do not need to install it.
-
 ## CI and releases
 
 - `.github/workflows/ci.yml` validates the addon and creates a test ZIP.
 - `.github/workflows/release.yml` runs the BigWigs Packager for `v*` tags.
 - The release tag version must match `## Version` in `BetterProfessions.toc`.
 - CurseForge publishing requires a project ID in `.pkgmeta` and the `CF_API_KEY` secret.
-
-## Inspiration
-
-The enhanced crafting-order list was inspired by ProfessionShoppingList, while the related-specialization view was inspired by CraftSim. BetterProfessions does not require either addon at runtime and provides its own implementation on top of Blizzard's standard interface.
