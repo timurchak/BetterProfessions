@@ -5,7 +5,7 @@
 ## Author: Timur
 ## Version: 0.1.0-dev
 ## SavedVariables: BetterProfessionsDB
-## OptionalDeps: Blizzard_Professions
+## OptionalDeps: Blizzard_Professions, Auctionator, TradeSkillMaster, OribosExchange
 ## Category-enUS: Professions
 ## Category-ruRU: Профессии
 

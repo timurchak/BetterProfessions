@@ -17,7 +17,7 @@ local function TextureMarkup(texture, size)
 end
 
 local function GetItemDisplay(itemID)
-    local itemName, itemLink, _, _, _, _, _, _, _, itemTexture = C_Item.GetItemInfo(itemID)
+    local itemName, itemLink, _, _, _, _, _, _, _, itemTexture, _, _, _, bindType = C_Item.GetItemInfo(itemID)
     if not itemTexture then
         local _, _, _, _, instantTexture = C_Item.GetItemInfoInstant(itemID)
         itemTexture = instantTexture
@@ -25,7 +25,47 @@ local function GetItemDisplay(itemID)
     if not itemLink then
         C_Item.RequestLoadItemDataByID(itemID)
     end
-    return itemName or ("Item " .. itemID), itemLink, itemTexture or 134400
+    return itemName or ("Item " .. itemID), itemLink, itemTexture or 134400, bindType
+end
+
+local function GetAuctionValue(itemID)
+    if not itemID then
+        return nil
+    end
+
+    if C_AddOns.IsAddOnLoaded("Auctionator") and Auctionator and Auctionator.API and Auctionator.API.v1 then
+        local api = Auctionator.API.v1
+        if api.GetAuctionPriceByItemID then
+            local ok, price = pcall(api.GetAuctionPriceByItemID, addon.name, itemID)
+            if ok and price and price > 0 then
+                return price, "Auctionator"
+            end
+        end
+    end
+
+    if C_AddOns.IsAddOnLoaded("TradeSkillMaster") and TSM_API and TSM_API.GetCustomPriceValue then
+        local ok, price = pcall(TSM_API.GetCustomPriceValue, "dbmarket", "i:" .. itemID)
+        if ok and price and price > 0 then
+            return price, "TradeSkillMaster"
+        end
+        ok, price = pcall(TSM_API.GetCustomPriceValue, "dbregionmarketavg", "i:" .. itemID)
+        if ok and price and price > 0 then
+            return price, "TradeSkillMaster"
+        end
+    end
+
+    if C_AddOns.IsAddOnLoaded("OribosExchange") and OEMarketInfo then
+        local marketInfo = {}
+        local ok = pcall(OEMarketInfo, itemID, marketInfo)
+        if ok then
+            local price = marketInfo.market or marketInfo.region
+            if price and price > 0 then
+                return price, "Oribos Exchange"
+            end
+        end
+    end
+
+    return nil
 end
 
 local function AddEntryToTooltip(entry)
@@ -115,6 +155,8 @@ local function CreateIcon(parent)
     return button
 end
 
+local RewardSummaryOnEnter
+
 local function CreateSummary(parent, showMoney)
     local summary = CreateFrame("Frame", nil, parent)
     summary:SetAllPoints()
@@ -130,6 +172,9 @@ local function CreateSummary(parent, showMoney)
         summary.money:SetPoint("LEFT", 1, 0)
         summary.money:SetPoint("RIGHT", -1, 0)
         summary.money:SetJustifyH("RIGHT")
+        summary:EnableMouse(true)
+        summary:SetScript("OnEnter", RewardSummaryOnEnter)
+        summary:SetScript("OnLeave", IconOnLeave)
     end
 
     for index = 1, MAX_ICONS do
@@ -146,6 +191,7 @@ end
 
 local function HideSummary(summary)
     summary:Hide()
+    summary.profitInfo = nil
     summary.text:SetText("")
     if summary.money then
         summary.money:SetText("")
@@ -156,16 +202,79 @@ local function HideSummary(summary)
     end
 end
 
-local function DisplayRewards(summary, entries)
+local function SignedMoney(amount)
+    if amount < 0 then
+        return "- " .. C_CurrencyInfo.GetCoinTextureString(-amount, 11)
+    end
+    return C_CurrencyInfo.GetCoinTextureString(amount, 11)
+end
+
+RewardSummaryOnEnter = function(self)
+    local info = self.profitInfo
+    if not info then
+        return
+    end
+
+    GameTooltip:SetOwner(self, "ANCHOR_BOTTOMRIGHT")
+    if info.complete then
+        local color = info.profit >= 0 and "|cff40c040" or "|cffff4040"
+        GameTooltip:AddDoubleLine(addon.L.PROFIT, color .. SignedMoney(info.profit) .. "|r", 1, 0.82, 0, 1, 1, 1)
+    else
+        GameTooltip:AddLine(addon.L.MISSING_PRICES, 1, 0.65, 0, true)
+    end
+
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddDoubleLine(addon.L.COMMISSION, C_CurrencyInfo.GetCoinTextureString(info.commission), 1, 1, 1, 0.4, 1, 0.4)
+    for _, reward in ipairs(info.rewardEntries) do
+        GameTooltip:AddDoubleLine(
+            TextureMarkup(reward.texture) .. " " .. (reward.link or reward.name) .. " ×" .. tostring(reward.count or 1),
+            C_CurrencyInfo.GetCoinTextureString(reward.totalPrice),
+            1, 1, 1, 0.4, 1, 0.4
+        )
+    end
+
+    if #info.costEntries > 0 then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine(addon.L.COSTS, 1, 0.82, 0)
+        for _, reagent in ipairs(info.costEntries) do
+            local amount = reagent.totalPrice or 0
+            GameTooltip:AddDoubleLine(
+                TextureMarkup(reagent.texture) .. " " .. (reagent.link or reagent.name) .. " ×" .. tostring(reagent.count or 0),
+                "|cffff4040- " .. C_CurrencyInfo.GetCoinTextureString(amount) .. "|r",
+                1, 1, 1, 1, 1, 1
+            )
+        end
+    end
+
+    if info.unpricedRewards then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine(addon.L.UNPRICED_REWARDS, 0.7, 0.7, 0.7, true)
+    end
+    if info.sources ~= "" then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddDoubleLine(addon.L.PRICE_SOURCE, info.sources, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7)
+    elseif not info.complete and not info.hasPriceSource then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine(addon.L.NO_PRICE_SOURCE, 1, 0.65, 0, true)
+    end
+    GameTooltip:Show()
+end
+
+local function DisplayRewards(summary, entries, profitInfo)
     summary:Show()
+    summary.profitInfo = profitInfo
     summary.text:SetText("")
     for _, icon in ipairs(summary.icons) do
         icon.entry = nil
         icon:Hide()
     end
 
-    local commission = entries[1]
-    summary.money:SetText(C_CurrencyInfo.GetCoinTextureString(commission and commission.amount or 0, 11))
+    if profitInfo.complete then
+        local color = profitInfo.profit >= 0 and "|cff40c040" or "|cffff4040"
+        summary.money:SetText(color .. SignedMoney(profitInfo.profit) .. "|r")
+    else
+        summary.money:SetText("|cffffb000?|r")
+    end
     local rewardEntries = {}
     for index = 2, #entries do
         rewardEntries[#rewardEntries + 1] = entries[index]
@@ -211,17 +320,17 @@ local function DisplayRewards(summary, entries)
     summary.money:SetPoint("RIGHT", -1, 0)
 end
 
-local function DisplayEntries(summary, entries, emptyText, extraTitle)
+local function DisplayEntries(summary, entries, extraTitle)
+    if #entries == 0 then
+        HideSummary(summary)
+        return
+    end
+
     summary:Show()
     summary.text:SetText("")
     for _, icon in ipairs(summary.icons) do
         icon.entry = nil
         icon:Hide()
-    end
-
-    if #entries == 0 then
-        summary.text:SetText(emptyText or "")
-        return
     end
 
     local visibleCount = math.min(#entries, MAX_ICONS)
@@ -296,7 +405,13 @@ local function GetMissingReagents(order)
         local requiredCount = slot.quantityRequired or 0
 
         if slot.required and selectedItemID and providedCount < requiredCount then
-            local itemName, itemLink, itemTexture = GetItemDisplay(selectedItemID)
+            local itemName, itemLink, itemTexture, bindType = GetItemDisplay(selectedItemID)
+            local alternatives = {}
+            for _, reagent in ipairs(slot.reagents or {}) do
+                if reagent.itemID then
+                    alternatives[#alternatives + 1] = reagent.itemID
+                end
+            end
             missing[#missing + 1] = {
                 kind = "item",
                 itemID = selectedItemID,
@@ -304,6 +419,8 @@ local function GetMissingReagents(order)
                 link = itemLink,
                 texture = itemTexture,
                 count = requiredCount - providedCount,
+                bindType = bindType,
+                alternatives = alternatives,
             }
         end
 
@@ -355,6 +472,92 @@ local function GetRewards(order)
         end
     end
     return rewards
+end
+
+local function HasAuctionPriceSource()
+    return C_AddOns.IsAddOnLoaded("Auctionator")
+        or C_AddOns.IsAddOnLoaded("TradeSkillMaster")
+        or C_AddOns.IsAddOnLoaded("OribosExchange")
+end
+
+local function CalculateProfit(missingReagents, rewards)
+    local commission = rewards[1] and rewards[1].amount or 0
+    local income = commission
+    local costs = 0
+    local missingPrices = false
+    local unpricedRewards = false
+    local costEntries = {}
+    local rewardEntries = {}
+    local sources = {}
+
+    for _, reagent in ipairs(missingReagents) do
+        if reagent.kind == "item" then
+            local cheapestPrice, cheapestItemID, cheapestSource
+            for _, itemID in ipairs(reagent.alternatives or { reagent.itemID }) do
+                local price, source = GetAuctionValue(itemID)
+                if price and (not cheapestPrice or price < cheapestPrice) then
+                    cheapestPrice = price
+                    cheapestItemID = itemID
+                    cheapestSource = source
+                end
+            end
+
+            if cheapestPrice then
+                local itemName, itemLink, itemTexture, bindType = GetItemDisplay(cheapestItemID)
+                reagent.itemID = cheapestItemID
+                reagent.name = itemName
+                reagent.link = itemLink
+                reagent.texture = itemTexture
+                reagent.bindType = bindType
+                reagent.unitPrice = cheapestPrice
+                reagent.priceSource = cheapestSource
+                reagent.totalPrice = cheapestPrice * (reagent.count or 0)
+                costs = costs + reagent.totalPrice
+                sources[cheapestSource] = true
+                costEntries[#costEntries + 1] = reagent
+            elseif reagent.bindType and reagent.bindType ~= 0 then
+                reagent.totalPrice = 0
+                costEntries[#costEntries + 1] = reagent
+            else
+                missingPrices = true
+            end
+        end
+    end
+
+    for index = 2, #rewards do
+        local reward = rewards[index]
+        if reward.kind == "rewardItem" then
+            local price, source = GetAuctionValue(reward.itemID)
+            if price then
+                reward.unitPrice = price
+                reward.totalPrice = price * (reward.count or 1)
+                income = income + reward.totalPrice
+                sources[source] = true
+                rewardEntries[#rewardEntries + 1] = reward
+            else
+                unpricedRewards = true
+            end
+        end
+    end
+
+    local sourceNames = {}
+    for source in pairs(sources) do
+        sourceNames[#sourceNames + 1] = source
+    end
+    table.sort(sourceNames)
+
+    return {
+        complete = not missingPrices,
+        hasPriceSource = HasAuctionPriceSource(),
+        commission = commission,
+        income = income,
+        costs = costs,
+        profit = income - costs,
+        costEntries = costEntries,
+        rewardEntries = rewardEntries,
+        sources = table.concat(sourceNames, ", "),
+        unpricedRewards = unpricedRewards,
+    }
 end
 
 local function GetConcentration(order, operationReagents)
@@ -448,8 +651,10 @@ function OrderList:UpdateRow(row, elementData)
             }
         end
 
-        DisplayRewards(widgets.rewards, GetRewards(order))
-        DisplayEntries(widgets.reagents, missingReagents, addon.L.ALL_PROVIDED, addon.L.YOU_PROVIDE)
+        local rewards = GetRewards(order)
+        local profitInfo = CalculateProfit(missingReagents, rewards)
+        DisplayRewards(widgets.rewards, rewards, profitInfo)
+        DisplayEntries(widgets.reagents, missingReagents, addon.L.YOU_PROVIDE)
     end)
 end
 
