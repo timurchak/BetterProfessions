@@ -5,6 +5,7 @@ addon.RecipeSpecializations = RecipeSpecializations
 
 local PANEL_WIDTH = 314
 local PANEL_HEIGHT = 430
+local CONTENT_WIDTH = PANEL_WIDTH - 52
 local ROW_HEIGHT = 48
 local ROW_GAP = 5
 
@@ -90,7 +91,7 @@ end
 
 local function CreateRow(parent)
     local row = CreateFrame("Button", nil, parent, "BackdropTemplate")
-    row:SetSize(PANEL_WIDTH - 34, ROW_HEIGHT)
+    row:SetSize(CONTENT_WIDTH, ROW_HEIGHT)
     row:SetBackdrop({
         bgFile = "Interface\\Buttons\\WHITE8X8",
         edgeFile = "Interface\\Buttons\\WHITE8X8",
@@ -103,6 +104,11 @@ local function CreateRow(parent)
     row.icon:SetSize(34, 34)
     row.icon:SetPoint("LEFT", 7, 0)
     row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+
+    row.qualityBadge = row:CreateTexture(nil, "OVERLAY")
+    row.qualityBadge:SetSize(15, 15)
+    row.qualityBadge:SetPoint("TOPRIGHT", row.icon, "TOPRIGHT", 4, 4)
+    row.qualityBadge:SetAtlas("Professions_Icon_FirstTimeCraft", false)
 
     row.name = row:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     row.name:SetPoint("TOPLEFT", row.icon, "TOPRIGHT", 7, -2)
@@ -164,7 +170,7 @@ function RecipeSpecializations:CreatePanel()
     frame.subtitle:SetPoint("TOPLEFT", frame.title, "BOTTOMLEFT", 0, -5)
     frame.subtitle:SetPoint("RIGHT", -18, 0)
     frame.subtitle:SetJustifyH("LEFT")
-    frame.subtitle:SetText(addon.L.QUALITY_SUBTITLE)
+    frame.subtitle:SetText(CreateAtlasMarkup("Professions_Icon_FirstTimeCraft", 14, 14) .. " " .. addon.L.QUALITY_SUBTITLE)
 
     frame.total = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     frame.total:SetPoint("TOPLEFT", frame.subtitle, "BOTTOMLEFT", 0, -9)
@@ -176,7 +182,7 @@ function RecipeSpecializations:CreatePanel()
     frame.scrollFrame:SetPoint("BOTTOMRIGHT", -31, 16)
 
     frame.scrollChild = CreateFrame("Frame", nil, frame.scrollFrame)
-    frame.scrollChild:SetSize(PANEL_WIDTH - 34, 1)
+    frame.scrollChild:SetSize(CONTENT_WIDTH, 1)
     frame.scrollFrame:SetScrollChild(frame.scrollChild)
     frame.rows = {}
 
@@ -276,7 +282,8 @@ function RecipeSpecializations:Update(recipeID)
         local row = self:GetRow(index)
         row.data = data
         row.icon:SetTexture(data.icon)
-        row.name:SetText((data.maxSkill > 0 and "|cffffd100★|r " or "") .. data.name)
+        row.name:SetText(data.name)
+        row.qualityBadge:SetShown(data.maxSkill > 0)
         row.rank:SetText(string.format("%d/%d", data.currentRank, data.maxRank))
         row.skill:SetText(data.maxSkill > 0 and string.format("+%d/%d", data.currentSkill, data.maxSkill) or "")
         row.bar:SetMinMaxValues(0, math.max(1, data.maxRank))
