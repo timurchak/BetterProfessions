@@ -27,7 +27,7 @@ $stagedAddon = Join-Path $temporaryRoot "BetterProfessions"
 
 try {
   New-Item -ItemType Directory -Path $stagedAddon -Force | Out-Null
-  $addonEntries = @("BetterProfessions.toc")
+  $addonEntries = @("BetterProfessions.toc", "Media\Icon.tga")
   $addonEntries += $toc | Where-Object { $_ -and -not $_.StartsWith("##") -and -not $_.StartsWith("#") }
 
   foreach ($entry in $addonEntries) {

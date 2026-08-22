@@ -45,7 +45,7 @@ if ((Test-Path -LiteralPath $destinationRoot) -and -not $NoClean) {
 }
 New-Item -ItemType Directory -Path $destinationRoot -Force | Out-Null
 
-$addonEntries = @("BetterProfessions.toc")
+$addonEntries = @("BetterProfessions.toc", "Media\Icon.tga")
 $addonEntries += Get-Content -LiteralPath $tocPath | Where-Object {
   $_ -and -not $_.StartsWith("##") -and -not $_.StartsWith("#")
 }

@@ -162,8 +162,13 @@ function RecipeSpecializations:CreatePanel()
     })
     frame:SetBackdropColor(0.06, 0.07, 0.09, 0.97)
 
+    frame.logo = frame:CreateTexture(nil, "ARTWORK")
+    frame.logo:SetSize(30, 30)
+    frame.logo:SetPoint("TOPLEFT", 13, -9)
+    frame.logo:SetTexture("Interface\\AddOns\\BetterProfessions\\Media\\Icon.tga")
+
     frame.title = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    frame.title:SetPoint("TOPLEFT", 18, -16)
+    frame.title:SetPoint("LEFT", frame.logo, "RIGHT", 3, 0)
     frame.title:SetText(addon.L.QUALITY_TITLE)
 
     frame.subtitle = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")

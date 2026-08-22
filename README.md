@@ -1,5 +1,7 @@
 # BetterProfessions
 
+<p align="center"><img src="Media/Logo.png" alt="BetterProfessions logo" width="180"></p>
+
 BetterProfessions is a small World of Warcraft Retail addon that extends Blizzard's profession interface. It adds useful details to the crafting-order list and shows the specializations that affect the quality of the selected recipe.
 
 The player-facing CurseForge description is available in [CURSE.md](CURSE.md).

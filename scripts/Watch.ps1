@@ -20,7 +20,7 @@ function Invoke-Deploy {
 
 function Get-WatchedPaths {
   $separator = [System.IO.Path]::DirectorySeparatorChar
-  $paths = @("BetterProfessions.toc")
+  $paths = @("BetterProfessions.toc", "Media\Icon.tga")
   $paths += Get-Content -LiteralPath $tocPath | Where-Object {
     $_ -and -not $_.StartsWith("##") -and -not $_.StartsWith("#")
   }

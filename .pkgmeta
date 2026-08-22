@@ -10,6 +10,8 @@ ignore:
   - .deploy.local.ps1
   - .deploy.local.ps1.example
   - .pkgmeta
+  - CURSE.md
+  - Media/Logo.png
   - README.md
   - scripts
   - dist

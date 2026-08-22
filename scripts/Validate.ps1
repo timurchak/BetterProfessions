@@ -8,9 +8,13 @@ Set-StrictMode -Version Latest
 
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $tocPath = Join-Path $projectRoot "BetterProfessions.toc"
+$iconPath = Join-Path $projectRoot "Media\Icon.tga"
 
 if (-not (Test-Path -LiteralPath $tocPath -PathType Leaf)) {
   throw "Missing TOC file: $tocPath"
+}
+if (-not (Test-Path -LiteralPath $iconPath -PathType Leaf)) {
+  throw "Missing addon icon: $iconPath"
 }
 
 $tocLines = Get-Content -LiteralPath $tocPath

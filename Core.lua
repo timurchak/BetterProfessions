@@ -17,7 +17,8 @@ local function CopyDefaults(target, defaults)
 end
 
 function addon:Print(message)
-    DEFAULT_CHAT_FRAME:AddMessage("|cff3fc7ebBetterProfessions:|r " .. tostring(message))
+    local icon = "|TInterface\\AddOns\\BetterProfessions\\Media\\Icon.tga:16:16:0:0|t"
+    DEFAULT_CHAT_FRAME:AddMessage(icon .. " |cff3fc7ebBetterProfessions:|r " .. tostring(message))
 end
 
 function addon:InitializeDatabase()
