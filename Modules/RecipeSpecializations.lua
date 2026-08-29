@@ -5,9 +5,14 @@ addon.RecipeSpecializations = RecipeSpecializations
 
 local PANEL_WIDTH = 314
 local PANEL_HEIGHT = 430
+local PANEL_MIN_HEIGHT = 170
 local CONTENT_WIDTH = PANEL_WIDTH - 52
 local ROW_HEIGHT = 48
 local ROW_GAP = 5
+
+local function Clamp(value, minimum, maximum)
+    return math.max(minimum, math.min(maximum, value))
+end
 
 local function GetNodeVisuals(configID, nodeID, nodeInfo)
     local entryID = nodeInfo and nodeInfo.entryIDs and nodeInfo.entryIDs[1]
@@ -143,15 +148,28 @@ function RecipeSpecializations:CreatePanel()
     end
 
     local frame = CreateFrame("Frame", "BetterProfessionsSpecializationFrame", UIParent, "BackdropTemplate")
-    frame:SetSize(PANEL_WIDTH, PANEL_HEIGHT)
-    frame:SetPoint("TOPLEFT", ProfessionsFrame, "TOPRIGHT", 8, -54)
+    local layout = type(addon.db.recipeSpecializationsLayout) == "table" and addon.db.recipeSpecializationsLayout or nil
+    local savedHeight = layout and tonumber(layout.height)
+    frame:SetSize(PANEL_WIDTH, Clamp(savedHeight or PANEL_HEIGHT, PANEL_MIN_HEIGHT, PANEL_HEIGHT))
+    if layout and tonumber(layout.x) and tonumber(layout.y) then
+        local maxX = math.max(0, (UIParent:GetWidth() - PANEL_WIDTH) / 2)
+        local maxY = math.max(0, (UIParent:GetHeight() - frame:GetHeight()) / 2)
+        frame:SetPoint("CENTER", UIParent, "CENTER", Clamp(tonumber(layout.x), -maxX, maxX), Clamp(tonumber(layout.y), -maxY, maxY))
+    else
+        frame:SetPoint("TOPLEFT", ProfessionsFrame, "TOPRIGHT", 8, -54)
+    end
     frame:SetFrameStrata("HIGH")
     frame:SetClampedToScreen(true)
     frame:SetMovable(true)
+    frame:SetResizable(true)
+    frame:SetResizeBounds(PANEL_WIDTH, PANEL_MIN_HEIGHT, PANEL_WIDTH, PANEL_HEIGHT)
     frame:EnableMouse(true)
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
-    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+    frame:SetScript("OnDragStop", function()
+        frame:StopMovingOrSizing()
+        self:SaveLayout()
+    end)
     frame:SetBackdrop({
         bgFile = "Interface\\FrameGeneral\\UI-Background-Marble",
         edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
@@ -197,8 +215,47 @@ function RecipeSpecializations:CreatePanel()
     frame.emptyText:SetJustifyH("CENTER")
     frame.emptyText:SetText(addon.L.NO_RELATED_NODES)
 
+    frame.resizeButton = CreateFrame("Button", nil, frame)
+    frame.resizeButton:SetSize(16, 16)
+    frame.resizeButton:SetPoint("BOTTOMRIGHT", -7, 7)
+    frame.resizeButton:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    frame.resizeButton:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+    frame.resizeButton:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+    frame.resizeButton:SetScript("OnMouseDown", function(_, button)
+        if button == "LeftButton" then
+            frame:StartSizing("BOTTOMRIGHT")
+        end
+    end)
+    frame.resizeButton:SetScript("OnMouseUp", function(_, button)
+        if button == "LeftButton" then
+            frame:StopMovingOrSizing()
+            self:SaveLayout()
+        end
+    end)
+
     frame:Hide()
     self.frame = frame
+end
+
+function RecipeSpecializations:SaveLayout()
+    if not addon.db or not self.frame then
+        return
+    end
+
+    local frameX, frameY = self.frame:GetCenter()
+    local parentX, parentY = UIParent:GetCenter()
+    if not frameX or not frameY or not parentX or not parentY then
+        return
+    end
+
+    local layout = type(addon.db.recipeSpecializationsLayout) == "table" and addon.db.recipeSpecializationsLayout or {}
+    addon.db.recipeSpecializationsLayout = layout
+    layout.x = frameX - parentX
+    layout.y = frameY - parentY
+    layout.height = self.frame:GetHeight()
+
+    self.frame:ClearAllPoints()
+    self.frame:SetPoint("CENTER", UIParent, "CENTER", layout.x, layout.y)
 end
 
 function RecipeSpecializations:GetRow(index)

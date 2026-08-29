@@ -22,6 +22,8 @@ Profit is calculated using prices from **Auctionator**, **TradeSkillMaster**, or
 
 When you open a recipe, a compact panel shows the specialization nodes that can increase skill for that specific recipe.
 
+The panel can be moved and made shorter using the resize handle in its lower-right corner. Its position and height are remembered between sessions.
+
 It includes:
 
 - related specialization nodes;
