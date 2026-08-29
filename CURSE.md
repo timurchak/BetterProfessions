@@ -14,6 +14,8 @@ The order list shows you:
 
 If you do not have enough of a required reagent, its icon is highlighted in red. When the customer provides everything, the reagent column stays empty instead of showing unnecessary text.
 
+Orders for recipes the character has not learned show a clear unavailable state instead of reagent, reward, and profit previews.
+
 Profit is calculated using prices from **Auctionator**, **TradeSkillMaster**, or **Oribos Exchange**. One of these addons is only needed for pricing; everything else works without them.
 
 ## Recipes and specializations

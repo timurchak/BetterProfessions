@@ -18,6 +18,7 @@ The player-facing CurseForge description is available in [CURSE.md](CURSE.md).
 - Red highlighting when the character does not own enough of a reagent.
 - Inventory checks across valid reagent qualities, bags, reagent bank, and Warband bank.
 - Concentration required to reach the order's minimum quality.
+- A clear “Recipe not learned” state instead of reagent and reward previews for unavailable recipes.
 - An empty reagent column when the customer supplied everything.
 
 Order previews use the same `row.option` state as Blizzard's ScrollBox rows. This keeps each preview attached to the correct order after sorting, list updates, and row reuse.

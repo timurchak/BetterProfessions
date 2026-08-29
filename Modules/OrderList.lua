@@ -244,6 +244,22 @@ local function HideSummary(summary)
     end
 end
 
+local function HideRecipeState(widgets)
+    if widgets and widgets.unlearned then
+        widgets.unlearned:Hide()
+    end
+    if widgets and widgets.unlearnedText then
+        widgets.unlearnedText:Hide()
+    end
+end
+
+local function ShowUnlearnedRecipeState(widgets)
+    HideSummary(widgets.rewards)
+    HideSummary(widgets.reagents)
+    widgets.unlearned:Show()
+    widgets.unlearnedText:Show()
+end
+
 local function SignedMoney(amount)
     if amount < 0 then
         return "- " .. C_CurrencyInfo.GetCoinTextureString(-amount, 11)
@@ -727,20 +743,42 @@ end
 
 local function GetWidgets(row)
     local widgets = widgetsByRow[row]
+    local recipeCell = row.cells[1]
     local rewardCell = row.cells[3]
     local reagentCell = row.cells[4]
-    if widgets and widgets.rewardCell == rewardCell and widgets.reagentCell == reagentCell then
+    if widgets
+        and widgets.recipeCell == recipeCell
+        and widgets.rewardCell == rewardCell
+        and widgets.reagentCell == reagentCell then
         return widgets
     end
 
     if widgets then
         HideSummary(widgets.rewards)
         HideSummary(widgets.reagents)
+        HideRecipeState(widgets)
     end
+
+    local unlearned = recipeCell:CreateTexture(nil, "OVERLAY")
+    unlearned:SetSize(18, 18)
+    unlearned:SetPoint("RIGHT", -8, 0)
+    unlearned:SetAtlas("common-icon-redx", false)
+    unlearned:Hide()
+
+    local unlearnedText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    unlearnedText:SetPoint("LEFT", rewardCell, "LEFT", 4, 0)
+    unlearnedText:SetPoint("RIGHT", reagentCell, "RIGHT", -4, 0)
+    unlearnedText:SetJustifyH("CENTER")
+    unlearnedText:SetText(addon.L.RECIPE_NOT_LEARNED)
+    unlearnedText:SetTextColor(1, 0.35, 0.35)
+    unlearnedText:Hide()
 
     widgets = {
         rewards = CreateSummary(rewardCell, true),
         reagents = CreateSummary(reagentCell, false),
+        unlearned = unlearned,
+        unlearnedText = unlearnedText,
+        recipeCell = recipeCell,
         rewardCell = rewardCell,
         reagentCell = reagentCell,
     }
@@ -752,6 +790,7 @@ local function GetWidgets(row)
             if currentWidgets then
                 HideSummary(currentWidgets.rewards)
                 HideSummary(currentWidgets.reagents)
+                HideRecipeState(currentWidgets)
                 currentWidgets.orderID = nil
                 currentWidgets.spellID = nil
             end
@@ -774,19 +813,26 @@ function OrderList:UpdateRow(row)
         if widgets then
             HideSummary(widgets.rewards)
             HideSummary(widgets.reagents)
+            HideRecipeState(widgets)
             widgets.orderID = nil
             widgets.spellID = nil
         end
         return
     end
 
-    local order = SnapshotOrder(liveOrder)
     local widgets = GetWidgets(row)
     widgets.orderID = liveOrder.orderID
     widgets.spellID = liveOrder.spellID
 
     HideNativeWidgets(row)
-    local model = BuildOrderModel(order)
+    local recipeInfo = C_TradeSkillUI.GetRecipeInfo(liveOrder.spellID)
+    if recipeInfo and recipeInfo.learned == false then
+        ShowUnlearnedRecipeState(widgets)
+        return
+    end
+
+    HideRecipeState(widgets)
+    local model = BuildOrderModel(SnapshotOrder(liveOrder))
 
     local currentOrder = row.option
     if currentOrder ~= liveOrder
@@ -794,6 +840,7 @@ function OrderList:UpdateRow(row)
         or currentOrder.spellID ~= widgets.spellID then
         HideSummary(widgets.rewards)
         HideSummary(widgets.reagents)
+        HideRecipeState(widgets)
         self:ScheduleRefreshRows()
         return
     end
