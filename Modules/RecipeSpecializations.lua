@@ -9,6 +9,7 @@ local PANEL_MIN_HEIGHT = 170
 local CONTENT_WIDTH = PANEL_WIDTH - 52
 local ROW_HEIGHT = 48
 local ROW_GAP = 5
+local DOCK_GAP = 8
 
 local function Clamp(value, minimum, maximum)
     return math.max(minimum, math.min(maximum, value))
@@ -142,6 +143,56 @@ local function CreateRow(parent)
     return row
 end
 
+local function DockButtonOnEnter(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText(self.owner:IsDocked() and addon.L.UNDOCK_PANEL or addon.L.DOCK_PANEL, 1, 0.82, 0)
+    if not self.owner:IsDocked() then
+        GameTooltip:AddLine(addon.L.DOCK_PANEL_HINT, 1, 1, 1, true)
+    end
+    GameTooltip:Show()
+end
+
+local function CreateDockButton(parent, owner)
+    local button = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    button:SetSize(20, 20)
+    button:SetPoint("TOPRIGHT", -12, -11)
+    button.owner = owner
+    button:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        edgeSize = 1,
+    })
+    button:SetBackdropColor(0.04, 0.05, 0.07, 0.72)
+    button:SetBackdropBorderColor(0.32, 0.35, 0.4, 0.8)
+
+    button.highlight = button:CreateTexture(nil, "HIGHLIGHT")
+    button.highlight:SetAllPoints()
+    button.highlight:SetColorTexture(1, 0.82, 0, 0.16)
+
+    button.leftLink = button:CreateTexture(nil, "ARTWORK")
+    button.leftLink:SetSize(3, 10)
+    button.leftLink:SetPoint("CENTER", -5, 0)
+    button.leftLink:SetColorTexture(0.95, 0.78, 0.2, 1)
+
+    button.rightLink = button:CreateTexture(nil, "ARTWORK")
+    button.rightLink:SetSize(3, 10)
+    button.rightLink:SetPoint("CENTER", 5, 0)
+    button.rightLink:SetColorTexture(0.95, 0.78, 0.2, 1)
+
+    button.connector = button:CreateTexture(nil, "ARTWORK")
+    button.connector:SetSize(10, 3)
+    button.connector:SetPoint("CENTER")
+    button.connector:SetColorTexture(0.95, 0.78, 0.2, 1)
+
+    button:SetScript("OnEnter", DockButtonOnEnter)
+    button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    button:SetScript("OnClick", function()
+        owner:SetDocked(not owner:IsDocked())
+        DockButtonOnEnter(button)
+    end)
+    return button
+end
+
 function RecipeSpecializations:CreatePanel()
     if self.frame then
         return
@@ -150,22 +201,37 @@ function RecipeSpecializations:CreatePanel()
     local frame = CreateFrame("Frame", "BetterProfessionsSpecializationFrame", UIParent, "BackdropTemplate")
     local layout = type(addon.db.recipeSpecializationsLayout) == "table" and addon.db.recipeSpecializationsLayout or nil
     local savedHeight = layout and tonumber(layout.height)
+    local hasSavedPosition = layout and tonumber(layout.x) and tonumber(layout.y)
+    if layout and layout.docked == nil and hasSavedPosition then
+        -- Positions saved by older versions were always free-floating.
+        layout.docked = false
+    end
+    self.docked = not layout or layout.docked ~= false
+    self.dockEdge = layout and layout.dockEdge == "BOTTOM" and "BOTTOM" or "TOP"
     frame:SetSize(PANEL_WIDTH, Clamp(savedHeight or PANEL_HEIGHT, PANEL_MIN_HEIGHT, PANEL_HEIGHT))
-    if layout and tonumber(layout.x) and tonumber(layout.y) then
+    if self.docked then
+        local point = self.dockEdge == "BOTTOM" and "BOTTOMLEFT" or "TOPLEFT"
+        local relativePoint = self.dockEdge == "BOTTOM" and "BOTTOMRIGHT" or "TOPRIGHT"
+        frame:SetPoint(point, ProfessionsFrame, relativePoint, DOCK_GAP, 0)
+    elseif hasSavedPosition then
         local maxX = math.max(0, (UIParent:GetWidth() - PANEL_WIDTH) / 2)
         local maxY = math.max(0, (UIParent:GetHeight() - frame:GetHeight()) / 2)
         frame:SetPoint("CENTER", UIParent, "CENTER", Clamp(tonumber(layout.x), -maxX, maxX), Clamp(tonumber(layout.y), -maxY, maxY))
     else
-        frame:SetPoint("TOPLEFT", ProfessionsFrame, "TOPRIGHT", 8, -54)
+        frame:SetPoint("TOPLEFT", ProfessionsFrame, "TOPRIGHT", DOCK_GAP, 0)
     end
     frame:SetFrameStrata("HIGH")
-    frame:SetClampedToScreen(true)
+    frame:SetClampedToScreen(not self.docked)
     frame:SetMovable(true)
     frame:SetResizable(true)
     frame:SetResizeBounds(PANEL_WIDTH, PANEL_MIN_HEIGHT, PANEL_WIDTH, PANEL_HEIGHT)
     frame:EnableMouse(true)
     frame:RegisterForDrag("LeftButton")
-    frame:SetScript("OnDragStart", frame.StartMoving)
+    frame:SetScript("OnDragStart", function()
+        if not self:IsDocked() then
+            frame:StartMoving()
+        end
+    end)
     frame:SetScript("OnDragStop", function()
         frame:StopMovingOrSizing()
         self:SaveLayout()
@@ -188,6 +254,9 @@ function RecipeSpecializations:CreatePanel()
     frame.title = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     frame.title:SetPoint("LEFT", frame.logo, "RIGHT", 3, 0)
     frame.title:SetText(addon.L.QUALITY_TITLE)
+
+    frame.dockButton = CreateDockButton(frame, self)
+    frame.title:SetPoint("RIGHT", frame.dockButton, "LEFT", -5, 0)
 
     frame.subtitle = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     frame.subtitle:SetPoint("TOPLEFT", frame.title, "BOTTOMLEFT", 0, -5)
@@ -235,10 +304,94 @@ function RecipeSpecializations:CreatePanel()
 
     frame:Hide()
     self.frame = frame
+    self:UpdateDockButton()
+end
+
+function RecipeSpecializations:IsDocked()
+    return self.docked == true
+end
+
+function RecipeSpecializations:UpdateDockButton()
+    if not self.frame or not self.frame.dockButton then
+        return
+    end
+
+    self.frame.dockButton.connector:SetShown(self:IsDocked())
+    local offset = self:IsDocked() and 5 or 6
+    self.frame.dockButton.leftLink:ClearAllPoints()
+    self.frame.dockButton.leftLink:SetPoint("CENTER", -offset, 0)
+    self.frame.dockButton.rightLink:ClearAllPoints()
+    self.frame.dockButton.rightLink:SetPoint("CENTER", offset, 0)
+end
+
+function RecipeSpecializations:GetNearestDockEdge()
+    local frameTop, frameBottom = self.frame:GetTop(), self.frame:GetBottom()
+    local professionTop, professionBottom = ProfessionsFrame:GetTop(), ProfessionsFrame:GetBottom()
+    if frameTop and frameBottom and professionTop and professionBottom then
+        if math.abs(frameBottom - professionBottom) < math.abs(frameTop - professionTop) then
+            return "BOTTOM"
+        end
+    end
+    return "TOP"
+end
+
+function RecipeSpecializations:ApplyDocking()
+    if not self.frame or not ProfessionsFrame then
+        return
+    end
+
+    self.frame:ClearAllPoints()
+    if self:IsDocked() then
+        local point = self.dockEdge == "BOTTOM" and "BOTTOMLEFT" or "TOPLEFT"
+        local relativePoint = self.dockEdge == "BOTTOM" and "BOTTOMRIGHT" or "TOPRIGHT"
+        self.frame:SetClampedToScreen(false)
+        self.frame:SetPoint(point, ProfessionsFrame, relativePoint, DOCK_GAP, 0)
+    else
+        local layout = addon.db and addon.db.recipeSpecializationsLayout
+        local x = layout and tonumber(layout.x) or 0
+        local y = layout and tonumber(layout.y) or 0
+        self.frame:SetClampedToScreen(true)
+        self.frame:SetPoint("CENTER", UIParent, "CENTER", x, y)
+    end
+end
+
+function RecipeSpecializations:SetDocked(docked)
+    if not self.frame or self:IsDocked() == docked then
+        return
+    end
+
+    local layout = type(addon.db.recipeSpecializationsLayout) == "table" and addon.db.recipeSpecializationsLayout or {}
+    addon.db.recipeSpecializationsLayout = layout
+    local frameX, frameY = self.frame:GetCenter()
+    local parentX, parentY = UIParent:GetCenter()
+    if frameX and frameY and parentX and parentY then
+        layout.x = frameX - parentX
+        layout.y = frameY - parentY
+    end
+
+    if docked then
+        self.dockEdge = self:GetNearestDockEdge()
+    end
+    self.docked = docked
+    layout.docked = docked
+    layout.dockEdge = self.dockEdge
+    self:ApplyDocking()
+    self:UpdateDockButton()
 end
 
 function RecipeSpecializations:SaveLayout()
     if not addon.db or not self.frame then
+        return
+    end
+
+    local layout = type(addon.db.recipeSpecializationsLayout) == "table" and addon.db.recipeSpecializationsLayout or {}
+    addon.db.recipeSpecializationsLayout = layout
+    layout.height = self.frame:GetHeight()
+    layout.docked = self:IsDocked()
+    layout.dockEdge = self.dockEdge
+
+    if self:IsDocked() then
+        self:ApplyDocking()
         return
     end
 
@@ -247,12 +400,8 @@ function RecipeSpecializations:SaveLayout()
     if not frameX or not frameY or not parentX or not parentY then
         return
     end
-
-    local layout = type(addon.db.recipeSpecializationsLayout) == "table" and addon.db.recipeSpecializationsLayout or {}
-    addon.db.recipeSpecializationsLayout = layout
     layout.x = frameX - parentX
     layout.y = frameY - parentY
-    layout.height = self.frame:GetHeight()
 
     self.frame:ClearAllPoints()
     self.frame:SetPoint("CENTER", UIParent, "CENTER", layout.x, layout.y)

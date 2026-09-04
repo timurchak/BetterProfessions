@@ -26,7 +26,7 @@ Order previews use the same `row.option` state as Blizzard's ScrollBox rows. Thi
 ### Recipe specializations
 
 - A compact side panel displayed when a recipe is selected.
-- A movable, vertically resizable panel that remembers its position and height.
+- A vertically resizable panel that can attach to the nearest right corner of the profession window or float freely, remembering its mode, position, and height.
 - All known related nodes that can affect skill for the recipe.
 - Current and maximum rank for each node.
 - Current and maximum skill bonuses.
