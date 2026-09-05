@@ -220,7 +220,6 @@ function RecipeSpecializations:CreatePanel()
     else
         frame:SetPoint("TOPLEFT", ProfessionsFrame, "TOPRIGHT", DOCK_GAP, 0)
     end
-    frame:SetFrameStrata("HIGH")
     frame:SetClampedToScreen(not self.docked)
     frame:SetMovable(true)
     frame:SetResizable(true)
@@ -304,7 +303,17 @@ function RecipeSpecializations:CreatePanel()
 
     frame:Hide()
     self.frame = frame
+    self:SyncFrameLayer()
     self:UpdateDockButton()
+end
+
+function RecipeSpecializations:SyncFrameLayer()
+    if not self.frame or not ProfessionsFrame then
+        return
+    end
+
+    self.frame:SetFrameStrata(ProfessionsFrame:GetFrameStrata())
+    self.frame:SetFrameLevel(ProfessionsFrame:GetFrameLevel())
 end
 
 function RecipeSpecializations:IsDocked()
@@ -519,6 +528,7 @@ function RecipeSpecializations:Update(recipeID)
     self.frame.emptyText:SetShown(#nodes == 0)
     self.frame.total:SetText(string.format("%s: |cff59bfff+%d|r / +%d", addon.L.SKILL_FROM_SPECS, totalCurrent, totalMax))
     self.frame.scrollChild:SetHeight(math.max(1, #nodes * (ROW_HEIGHT + ROW_GAP) - ROW_GAP))
+    self:SyncFrameLayer()
     self.frame:Show()
 end
 
