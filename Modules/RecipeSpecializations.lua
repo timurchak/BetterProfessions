@@ -199,6 +199,8 @@ function RecipeSpecializations:CreatePanel()
     end
 
     local frame = CreateFrame("Frame", "BetterProfessionsSpecializationFrame", UIParent, "BackdropTemplate")
+    -- SavedVariables own the layout; WoW's per-character position cache must not override it.
+    frame:SetDontSavePosition(true)
     local layout = type(addon.db.recipeSpecializationsLayout) == "table" and addon.db.recipeSpecializationsLayout or nil
     local savedHeight = layout and tonumber(layout.height)
     local hasSavedPosition = layout and tonumber(layout.x) and tonumber(layout.y)
@@ -243,7 +245,7 @@ function RecipeSpecializations:CreatePanel()
         edgeSize = 24,
         insets = { left = 5, right = 5, top = 5, bottom = 5 },
     })
-    frame:SetBackdropColor(0.06, 0.07, 0.09, 0.97)
+    frame:SetBackdropColor(0.06, 0.07, 0.09, 1)
 
     frame.logo = frame:CreateTexture(nil, "ARTWORK")
     frame.logo:SetSize(30, 30)
@@ -303,6 +305,13 @@ function RecipeSpecializations:CreatePanel()
 
     frame:Hide()
     self.frame = frame
+    frame:SetScript("OnShow", function()
+        if self:IsDocked() then
+            self:ApplyDocking()
+        end
+        self:SyncFrameLayer()
+        self:UpdateDockButton()
+    end)
     self:SyncFrameLayer()
     self:UpdateDockButton()
 end
@@ -312,8 +321,14 @@ function RecipeSpecializations:SyncFrameLayer()
         return
     end
 
-    self.frame:SetFrameStrata(ProfessionsFrame:GetFrameStrata())
-    self.frame:SetFrameLevel(ProfessionsFrame:GetFrameLevel())
+    -- Keep the entire panel above HUD frames, whose children can have high levels
+    -- within MEDIUM strata. Preserve higher profession-window strata from UI addons.
+    local strata = ProfessionsFrame:GetFrameStrata()
+    if strata == "BACKGROUND" or strata == "LOW" or strata == "MEDIUM" then
+        strata = "HIGH"
+    end
+    self.frame:SetFrameStrata(strata)
+    self.frame:SetFrameLevel(ProfessionsFrame:GetFrameLevel() + 1)
 end
 
 function RecipeSpecializations:IsDocked()
@@ -365,7 +380,12 @@ function RecipeSpecializations:ApplyDocking()
 end
 
 function RecipeSpecializations:SetDocked(docked)
-    if not self.frame or self:IsDocked() == docked then
+    if not self.frame then
+        return
+    end
+    if self:IsDocked() == docked then
+        self:ApplyDocking()
+        self:UpdateDockButton()
         return
     end
 
@@ -578,6 +598,9 @@ function RecipeSpecializations:Initialize()
     self:HookForm(orderDetails and orderDetails.SchematicForm)
 
     ProfessionsFrame:HookScript("OnHide", function() self.frame:Hide() end)
+    ProfessionsFrame:HookScript("OnShow", function()
+        C_Timer.After(0, function() self:UpdateFromVisibleForm() end)
+    end)
     EventRegistry:RegisterCallback("ProfessionsRecipeListMixin.Event.OnRecipeSelected", function(_, recipeInfo)
         if recipeInfo then
             self:Update(recipeInfo.recipeID)
