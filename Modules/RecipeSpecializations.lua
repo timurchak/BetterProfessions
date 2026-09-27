@@ -329,6 +329,19 @@ function RecipeSpecializations:SyncFrameLayer()
     end
     self.frame:SetFrameStrata(strata)
     self.frame:SetFrameLevel(ProfessionsFrame:GetFrameLevel() + 1)
+    self:SyncItemFlyoutLayer()
+end
+
+function RecipeSpecializations:SyncItemFlyoutLayer()
+    local flyout = self.itemFlyout
+    if not flyout or not flyout:IsShown() or not self.frame:IsShown() then
+        return
+    end
+
+    -- The native reagent flyout also uses HIGH. Its background must sit above
+    -- every panel child, not just the panel root, to avoid interleaved text.
+    flyout:SetFrameStrata(self.frame:GetFrameStrata())
+    flyout:SetFrameLevel(math.max(flyout:GetFrameLevel(), self.frame:GetHighestFrameLevel(true) + 1))
 end
 
 function RecipeSpecializations:IsDocked()
@@ -592,6 +605,12 @@ function RecipeSpecializations:Initialize()
     end
     self.initialized = true
     self:CreatePanel()
+
+    hooksecurefunc("OpenProfessionsItemFlyout", function(_, _, behavior)
+        -- Blizzard stores the shared flyout on its behavior before showing it.
+        self.itemFlyout = behavior.flyout
+        self:SyncItemFlyoutLayer()
+    end)
 
     self:HookForm(ProfessionsFrame.CraftingPage and ProfessionsFrame.CraftingPage.SchematicForm)
     local orderDetails = ProfessionsFrame.OrdersPage and ProfessionsFrame.OrdersPage.OrderView and ProfessionsFrame.OrdersPage.OrderView.OrderDetails
